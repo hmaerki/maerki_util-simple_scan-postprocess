@@ -13,6 +13,11 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   versus after border removal. Committed.
 - DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
   border removed and deskewed (scan_postprocess.postprocess). Not committed.
+- DIRECTORY_SCANS_RESULTS / "bw.md": levels and file sizes of the 'bw' scans.
+  Committed.
+- DIRECTORY_SCANS_RESULTS / "bw_preview/*.png": the 'bw' scans, postprocessed
+  and converted to GRAY_LEVELS gray levels, full resolution, compressed.
+  Not committed.
 """
 
 from __future__ import annotations
@@ -25,6 +30,13 @@ import time
 from PIL import Image, ImageDraw
 
 from scan_postprocess.border import remove_border
+from scan_postprocess.bw import (
+    BLACK_FRACTION,
+    GRAY_LEVELS,
+    WHITE_FRACTION,
+    convert_bw,
+    save_png_compressed,
+)
 from scan_postprocess.postprocess import postprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
@@ -37,6 +49,8 @@ FILENAME_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "border.md"
 DIRECTORY_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "border_preview"
 FILENAME_TILT_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt_border.md"
 DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_border_preview"
+FILENAME_BW_RESULTS = DIRECTORY_SCANS_RESULTS / "bw.md"
+DIRECTORY_BW_PREVIEW = DIRECTORY_SCANS_RESULTS / "bw_preview"
 
 TILT_TOLERANCE_DEGREES = 0.5
 PREVIEW_WIDTH = 1240
@@ -321,4 +335,67 @@ def test_tilt_border() -> None:
         FILENAME_TILT_BORDER_RESULTS,
         "Tilt (degrees) on the raw scan versus after border removal",
         header + lines,
+    )
+
+
+def test_bw() -> None:
+    """Postprocess the 'bw' scans and convert them to compressed grayscale."""
+    scan_files, scan_attributes = scan_files_and_attributes()
+    bw_files = [f for f in scan_files if scan_attributes[f.name].type == "bw"]
+    assert bw_files, "README.md lists no scan of type 'bw'"
+
+    DIRECTORY_BW_PREVIEW.mkdir(parents=True, exist_ok=True)
+    header = [
+        "| file | content | level black | level white | raw kB | bw kB | ratio |",
+        "|---|---|---:|---:|---:|---:|---:|",
+    ]
+    print()
+    print("\n".join(header))
+
+    lines: list[str] = []
+    size_raw_total = 0
+    size_bw_total = 0
+    start = time.monotonic()
+    for filename in bw_files:
+        with Image.open(filename) as image:
+            postprocessed = postprocess(image)
+        bw = convert_bw(postprocessed.image)
+        assert bw.image.size == postprocessed.image.size
+        assert bw.image.mode == "P"
+        assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
+        filename_bw = DIRECTORY_BW_PREVIEW / filename.name
+        save_png_compressed(bw.image, filename_bw)
+
+        size_raw = filename.stat().st_size
+        size_bw = filename_bw.stat().st_size
+        size_raw_total += size_raw
+        size_bw_total += size_bw
+        a = scan_attributes[filename.name]
+        line = (
+            f"| {a.filename} | {a.content} | {bw.level_black} | {bw.level_white}"
+            f" | {size_raw // 1024} | {size_bw // 1024}"
+            f" | {size_raw / size_bw:.1f} |"
+        )
+        lines.append(line)
+        print(line)
+    duration_s = time.monotonic() - start
+
+    summary = [
+        f"White: {100 * WHITE_FRACTION:.0f}% of the pixels,"
+        f" black: {100 * BLACK_FRACTION:.0f}% of the pixels,"
+        f" {GRAY_LEVELS} gray levels",
+        f"Total: raw {size_raw_total // 1024} kB, bw {size_bw_total // 1024} kB,"
+        f" ratio {size_raw_total / size_bw_total:.1f}",
+    ]
+    print()
+    print("\n".join(summary))
+    # Not written to the results file: it would change on every run.
+    print(f"Duration: {duration_s:.1f}s")
+    print(f"Results: {FILENAME_BW_RESULTS}")
+    print(f"Previews: {DIRECTORY_BW_PREVIEW}")
+
+    write_results(
+        FILENAME_BW_RESULTS,
+        "Black/white scans converted to grayscale",
+        header + lines + [""] + [f"- {s}" for s in summary],
     )

@@ -4,3 +4,4 @@
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+tests/scan_postprocess/scans_0_raw_results/tilt_preview/

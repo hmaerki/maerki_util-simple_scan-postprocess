@@ -18,7 +18,8 @@
             "request": "launch",
             "module": "pytest",
             "args": [
-                "tests"
+                "tests",
+                "-s",
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

@@ -55,12 +55,15 @@ def test_readme_lists_all_scans() -> None:
 
 @pytest.mark.parametrize("filename", SCAN_FILES, ids=lambda f: f.name)
 def test_tilt(filename: pathlib.Path) -> None:
+    # Measured from the pixels of the PNG (Pillow + numpy).
     tilt = estimate_tilt_file(filename)
+    # Expected value as documented in README.md.
     expected = SCAN_ATTRIBUTES[filename.name]
     print(
-        f"\n{filename.name}: tilt={tilt:+.2f}degrees"
-        f" (README.md: {expected.tilt:+.1f}degrees,"
-        f" type={expected.type}, content={expected.content})"
+        f"\n{filename.name}:"
+        f" measured_from_png={tilt:+.2f}degrees"
+        f" README.md={expected.tilt:+.2f}degrees"
+        f" diff={tilt - expected.tilt:+.2f}degrees"
     )
     assert -TILT_MAX_DEGREES <= tilt <= TILT_MAX_DEGREES
     assert tilt == pytest.approx(expected.tilt, abs=TILT_TOLERANCE_DEGREES)

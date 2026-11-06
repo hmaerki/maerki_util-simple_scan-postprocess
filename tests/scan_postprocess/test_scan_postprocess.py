@@ -9,6 +9,10 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   the measured tilt and overlaid with horizontal lines. Not committed.
 - DIRECTORY_SCANS_RESULTS / "border_preview/*.png": every scan with the
   removed border painted magenta. Not committed.
+- DIRECTORY_SCANS_RESULTS / "tilt_border.md": tilt measured on the raw scan
+  versus after border removal. Committed.
+- DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
+  border removed and deskewed (scan_postprocess.postprocess). Not committed.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ import time
 from PIL import Image, ImageDraw
 
 from scan_postprocess.border import remove_border
+from scan_postprocess.postprocess import postprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
 DIRECTORY_SCANS = pathlib.Path(__file__).parent / "scans_0_raw"
@@ -30,6 +35,8 @@ FILENAME_TILT_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt.md"
 DIRECTORY_TILT_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_preview"
 FILENAME_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "border.md"
 DIRECTORY_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "border_preview"
+FILENAME_TILT_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt_border.md"
+DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_border_preview"
 
 TILT_TOLERANCE_DEGREES = 0.5
 PREVIEW_WIDTH = 1240
@@ -267,4 +274,51 @@ def test_border() -> None:
 
     assert not failed, "Border differs from README.md: " + ", ".join(
         r.attributes.filename for r in failed
+    )
+
+
+def test_tilt_border() -> None:
+    """Remove the border, then deskew. Compare with the tilt of the raw scan."""
+    scan_files, scan_attributes = scan_files_and_attributes()
+
+    DIRECTORY_TILT_BORDER_PREVIEW.mkdir(parents=True, exist_ok=True)
+    header = [
+        "| file | README.md | tilt raw | tilt after border | change | border % |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    print()
+    print("\n".join(header))
+
+    lines: list[str] = []
+    start = time.monotonic()
+    for filename in scan_files:
+        with Image.open(filename) as image:
+            tilt_raw = estimate_tilt(image)
+            result = postprocess(image)
+            assert result.image.size == image.size, "The image size must not change"
+        scale = PREVIEW_WIDTH / result.image.width
+        result.image.resize(
+            (PREVIEW_WIDTH, round(result.image.height * scale)),
+            resample=Image.Resampling.BOX,
+        ).save(DIRECTORY_TILT_BORDER_PREVIEW / f"{filename.stem}.png", compress_level=0)
+        a = scan_attributes[filename.name]
+        line = (
+            f"| {a.filename} | {a.tilt:+.2f} | {tilt_raw:+.2f}"
+            f" | {result.tilt:+.2f} | {result.tilt - tilt_raw:+.2f}"
+            f" | {100.0 * result.border_fraction:.1f} |"
+        )
+        lines.append(line)
+        print(line)
+    duration_s = time.monotonic() - start
+
+    print()
+    # Not written to the results file: it would change on every run.
+    print(f"Duration: {duration_s:.1f}s")
+    print(f"Results: {FILENAME_TILT_BORDER_RESULTS}")
+    print(f"Previews: {DIRECTORY_TILT_BORDER_PREVIEW}")
+
+    write_results(
+        FILENAME_TILT_BORDER_RESULTS,
+        "Tilt (degrees) on the raw scan versus after border removal",
+        header + lines,
     )

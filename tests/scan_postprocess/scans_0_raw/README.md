@@ -15,30 +15,32 @@ Attributes per scan, read by `tests/scan_postprocess/test_scan_postprocess.py`:
   - `hand`: handwriting / hand drawing
   - `images`: mainly pictures
   - `mix`: printed text combined with photos and signatures
+- `border`: `yes` if the scanner lid is visible around the paper.
+  Thin dark lines along the image edge do not count.
 
 ## Scans
 
-- scan_raw-01.png type=bw tilt=-1.7degrees content=hand
-- scan_raw-02.png type=indexed tilt=1.8degrees content=hand
-- scan_raw-03.png type=bw tilt=0.0degrees content=hand
-- scan_raw-04.png type=indexed tilt=0.0degrees content=hand
-- scan_raw-05.png type=color tilt=0.0degrees content=mix
-- scan_raw-06.png type=color tilt=0.0degrees content=mix
-- scan_raw-07.png type=bw tilt=0.0degrees content=machine
-- scan_raw-08.png type=bw tilt=0.0degrees content=machine
-- scan_raw-09.png type=bw tilt=0.0degrees content=machine
-- scan_raw-10.png type=color tilt=0.0degrees content=mix
-- scan_raw-11.png type=indexed tilt=-0.2degrees content=machine
-- scan_raw-12.png type=indexed tilt=0.2degrees content=machine
-- scan_raw-13.png type=color tilt=0.0degrees content=mix
-- scan_raw-14.png type=bw tilt=0.0degrees content=machine
-- scan_raw-15.png type=indexed tilt=-0.5degrees content=machine
-- scan_raw-16.png type=indexed tilt=1.0degrees content=machine
-- scan_raw-17.png type=indexed tilt=-1.5degrees content=machine
-- scan_raw-18.png type=color tilt=0.4degrees content=mix
-- scan_raw-19.png type=color tilt=1.6degrees content=mix
-- scan_raw-20.png type=color tilt=-1.8degrees content=mix
-- scan_raw-21.png type=indexed tilt=0.0degrees content=machine
-- scan_raw-22.png type=indexed tilt=0.0degrees content=machine
-- scan_raw-23.png type=indexed tilt=0.0degrees content=machine
-- scan_raw-24.png type=indexed tilt=0.5degrees content=machine
+- scan_raw-01.png type=bw tilt=-1.7degrees content=hand border=no
+- scan_raw-02.png type=indexed tilt=1.8degrees content=hand border=no
+- scan_raw-03.png type=bw tilt=0.0degrees content=hand border=no
+- scan_raw-04.png type=indexed tilt=0.0degrees content=hand border=no
+- scan_raw-05.png type=color tilt=0.0degrees content=mix border=no
+- scan_raw-06.png type=color tilt=0.0degrees content=mix border=no
+- scan_raw-07.png type=bw tilt=0.0degrees content=machine border=no
+- scan_raw-08.png type=bw tilt=0.0degrees content=machine border=no
+- scan_raw-09.png type=bw tilt=0.0degrees content=machine border=no
+- scan_raw-10.png type=color tilt=0.0degrees content=mix border=no
+- scan_raw-11.png type=indexed tilt=-0.2degrees content=machine border=no
+- scan_raw-12.png type=indexed tilt=0.2degrees content=machine border=no
+- scan_raw-13.png type=color tilt=0.0degrees content=mix border=no
+- scan_raw-14.png type=bw tilt=0.0degrees content=machine border=no
+- scan_raw-15.png type=indexed tilt=-0.5degrees content=machine border=no
+- scan_raw-16.png type=indexed tilt=1.0degrees content=machine border=no
+- scan_raw-17.png type=indexed tilt=-1.5degrees content=machine border=no
+- scan_raw-18.png type=color tilt=0.4degrees content=mix border=no
+- scan_raw-19.png type=color tilt=1.6degrees content=mix border=no
+- scan_raw-20.png type=color tilt=-1.8degrees content=mix border=no
+- scan_raw-21.png type=indexed tilt=0.0degrees content=machine border=yes
+- scan_raw-22.png type=indexed tilt=0.0degrees content=machine border=yes
+- scan_raw-23.png type=indexed tilt=0.0degrees content=machine border=yes
+- scan_raw-24.png type=indexed tilt=0.5degrees content=machine border=yes

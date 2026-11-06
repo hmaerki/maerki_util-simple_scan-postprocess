@@ -1,6 +1,6 @@
-# Tilt results
+# Tilt results (degrees)
 
-Written by tests/scan_postprocess/test_scan_postprocess.py, tilt in degrees.
+Written by tests/scan_postprocess/test_scan_postprocess.py.
 
 | file | type | content | README.md | measured | diff | result |
 |---|---|---|---:|---:|---:|---|

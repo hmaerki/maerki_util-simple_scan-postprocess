@@ -17,6 +17,8 @@ classifiers = [
 ]
 
 dependencies = [
+    "pillow==13.0.0",
+    "numpy==2.5.4",
 ]
 
 [project.optional-dependencies]

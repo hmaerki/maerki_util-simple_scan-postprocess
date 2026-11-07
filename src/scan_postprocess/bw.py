@@ -1,8 +1,10 @@
 """Convert a black/white scan into a contrast stretched grayscale image.
 
 Only for scans of type 'bw' (black or gray ink on white paper). Assumption:
-- WHITE_FRACTION of the pixels are paper: they become pure white.
-- BLACK_FRACTION of the pixels are ink: they become pure black.
+- BACKGROUND_COLOR_FRACTION of the pixels are background (paper): they become
+  pure white.
+- FOREGROUND_COLOR_FRACTION of the pixels are foreground (ink): they become
+  pure black.
 The gray levels in between are stretched linearly and reduced to GRAY_LEVELS
 levels. The result is a palette image: saved as PNG with log2(GRAY_LEVELS)
 bits per pixel.
@@ -17,8 +19,8 @@ import pathlib
 import numpy as np
 from PIL import Image
 
-WHITE_FRACTION = 0.90
-BLACK_FRACTION = 0.01
+BACKGROUND_COLOR_FRACTION = 0.90
+FOREGROUND_COLOR_FRACTION = 0.01
 GRAY_LEVELS = 16
 """2, 4, 16 or 256: PNG supports 1, 2, 4 or 8 bits per pixel."""
 
@@ -27,34 +29,45 @@ GRAY_LEVELS = 16
 class BwResult:
     image: Image.Image
     """Palette image ('P') with GRAY_LEVELS gray levels from black to white."""
-    level_black: int
+    level_foreground_color: int
     """Gray level of the raw image mapped to 0."""
-    level_white: int
+    level_background_color: int
     """Gray level of the raw image mapped to 255."""
 
 
 def stretch_levels(gray: Image.Image) -> tuple[int, int]:
-    """Return (level_black, level_white) of a grayscale ('L') image."""
+    """Return (level_foreground_color, level_background_color) of a grayscale ('L') image."""
     pixels = np.asarray(gray)
-    level_black = int(np.percentile(pixels, 100.0 * BLACK_FRACTION))
-    level_white = int(np.percentile(pixels, 100.0 * (1.0 - WHITE_FRACTION)))
-    level_white = max(level_white, level_black + 1)
-    return level_black, level_white
+    level_foreground_color = int(
+        np.percentile(pixels, 100.0 * FOREGROUND_COLOR_FRACTION)
+    )
+    level_background_color = int(
+        np.percentile(pixels, 100.0 * (1.0 - BACKGROUND_COLOR_FRACTION))
+    )
+    level_background_color = max(level_background_color, level_foreground_color + 1)
+    return level_foreground_color, level_background_color
 
 
-def stretch_lut(level_black: int, level_white: int, steps: int = 256) -> list[int]:
+def stretch_lut(
+    level_foreground_color: int, level_background_color: int, steps: int = 256
+) -> list[int]:
     """Lookup table: raw level -> stretched level in 0 .. steps-1."""
     raw = np.arange(256, dtype=np.float64)
-    stretched = np.clip((raw - level_black) / (level_white - level_black), 0.0, 1.0)
+    stretched = np.clip(
+        (raw - level_foreground_color)
+        / (level_background_color - level_foreground_color),
+        0.0,
+        1.0,
+    )
     return np.round(stretched * (steps - 1)).astype(np.uint8).tolist()
 
 
 def convert_bw(image: Image.Image) -> BwResult:
     gray = image.convert("L")
-    level_black, level_white = stretch_levels(gray)
+    level_foreground_color, level_background_color = stretch_levels(gray)
 
     # One lookup table: raw gray level -> stretched -> palette index.
-    lut = stretch_lut(level_black, level_white, steps=GRAY_LEVELS)
+    lut = stretch_lut(level_foreground_color, level_background_color, steps=GRAY_LEVELS)
     indices = gray.point(lut)
 
     image_p = Image.frombytes("P", indices.size, indices.tobytes())
@@ -66,8 +79,8 @@ def convert_bw(image: Image.Image) -> BwResult:
 
     return BwResult(
         image=image_p,
-        level_black=level_black,
-        level_white=level_white,
+        level_foreground_color=level_foreground_color,
+        level_background_color=level_background_color,
     )
 
 

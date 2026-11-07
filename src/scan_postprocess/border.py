@@ -1,8 +1,9 @@
 """Remove the scanner border around a scanned page.
 
 The border is everything outside the paper: the scanner lid (neutral gray)
-and dark lines along the image edges. It is painted white, the image size
-does not change.
+and dark lines along the image edges. It is painted with the background
+color of the page (white paper: near white, book cover: the cover color), the
+image size does not change.
 
 The paper is a rectangle, so the border is too: first a pixel mask of the
 border is computed, then the page rectangle is fitted to it (see
@@ -21,8 +22,6 @@ from PIL import Image
 
 _WORKING_WIDTH = 620
 """The mask is computed on a downscaled image (speed)."""
-
-FILL_COLOR = (255, 255, 255)
 
 _EDGE_BAND = 0.03
 """Width of the band along the image edge where the lid color is sampled."""
@@ -53,6 +52,8 @@ class BorderResult:
     image: Image.Image
     mask: Image.Image
     """'L' image, full size: 255 where the border was removed."""
+    background_color: tuple[int, int, int]
+    """Background color of the page: the border is painted with it."""
 
     @property
     def border_fraction(self) -> float:
@@ -107,8 +108,22 @@ def _page_rectangle(border: np.ndarray) -> tuple[int, int, int, int]:
     return top, bottom, left, right
 
 
-def border_mask(image: Image.Image) -> Image.Image:
-    """Return a full size 'L' mask: 255 for border pixels."""
+def _background_color(pixels: np.ndarray) -> tuple[int, int, int]:
+    """Return the background color of the page pixels (N x 3).
+
+    The most frequent color (quantized to 16 levels per channel) finds the
+    background; the median of its pixels gives the exact color.
+    """
+    quantized = pixels // 16
+    keys = quantized[:, 0] * 256 + quantized[:, 1] * 16 + quantized[:, 2]
+    dominant = keys == int(np.argmax(np.bincount(keys)))
+    r, g, b = np.median(pixels[dominant], axis=0).round().astype(int)
+    return int(r), int(g), int(b)
+
+
+def border_mask(image: Image.Image) -> tuple[Image.Image, tuple[int, int, int]]:
+    """Return a full size 'L' mask (255 for border pixels) and the background
+    color of the page."""
     scale = _WORKING_WIDTH / image.width
     small = image.convert("RGB").resize(
         (_WORKING_WIDTH, round(image.height * scale)),
@@ -160,17 +175,20 @@ def border_mask(image: Image.Image) -> Image.Image:
         right -= g if right < w else 0
         border = np.ones((h, w), dtype=bool)
         border[top:bottom, left:right] = False
+    page = rgb[~border] if not np.all(border) else rgb.reshape(-1, 3)
+    background_color = _background_color(page)
     mask_small = Image.fromarray((border * 255).astype(np.uint8), mode="L")
-    return mask_small.resize(image.size, resample=Image.Resampling.NEAREST)
+    mask = mask_small.resize(image.size, resample=Image.Resampling.NEAREST)
+    return mask, background_color
 
 
 def remove_border(image: Image.Image) -> BorderResult:
-    """Paint the border white. The returned image has the same size."""
-    mask = border_mask(image)
+    """Paint the border with the background color. Same size as 'image'."""
+    mask, background_color = border_mask(image)
     result = image.convert("RGB")
-    result.paste(FILL_COLOR, mask=mask)
+    result.paste(background_color, mask=mask)
     assert result.size == image.size
-    return BorderResult(image=result, mask=mask)
+    return BorderResult(image=result, mask=mask, background_color=background_color)
 
 
 def remove_border_file(filename: pathlib.Path) -> BorderResult:

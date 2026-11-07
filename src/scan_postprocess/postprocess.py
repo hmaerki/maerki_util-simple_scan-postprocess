@@ -4,8 +4,8 @@ Order:
 1. Remove the border (scanner lid, dark edge lines).
 2. Estimate the tilt on the border-free image: the straight, axis aligned
    border edges would otherwise pull the estimate towards 0 degrees.
-3. Rotate by -tilt. The corners uncovered by the rotation are filled white,
-   like the removed border. The image size does not change.
+3. Rotate by -tilt. The corners uncovered by the rotation are filled with the
+   background color, like the removed border. The image size does not change.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pathlib
 
 from PIL import Image
 
-from scan_postprocess.border import FILL_COLOR, remove_border
+from scan_postprocess.border import remove_border
 from scan_postprocess.tilt import estimate_tilt
 
 
@@ -33,7 +33,7 @@ def postprocess(image: Image.Image) -> PostprocessResult:
     deskewed = border.image.rotate(
         -tilt,
         resample=Image.Resampling.BICUBIC,
-        fillcolor=FILL_COLOR,
+        fillcolor=border.background_color,
     )
     assert deskewed.size == image.size
     return PostprocessResult(

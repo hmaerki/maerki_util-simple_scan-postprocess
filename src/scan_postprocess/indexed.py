@@ -5,12 +5,12 @@ covers). Processed like 'bw' (see scan_postprocess.bw), with these steps:
 1. Smooth with a gaussian filter (BLUR_RADIUS): removes the scanner noise,
    which would otherwise be spread over many palette colors and spoil the
    compression.
-2. Measure the black and white levels on the grayscale image and stretch
-   every RGB channel with these levels: the paper becomes white, the hues are
-   kept.
+2. Measure the foreground and background color levels on the grayscale image
+   and stretch every RGB channel with these levels: the paper becomes white,
+   the hues are kept.
    Exception: colored pages (book covers) have no white paper. The measured
    levels are then close together (less than MIN_STRETCH_RANGE) and the image
-   is not stretched: level_black=0, level_white=255.
+   is not stretched: level_foreground_color=0, level_background_color=255.
 3. Reduce to an adaptive palette of PALETTE_COLORS colors, without dithering
    (dithering would spoil the compression).
 4. Merge near-identical palette colors (closer than MERGE_DISTANCE): a flat
@@ -34,7 +34,8 @@ PALETTE_COLORS = 32
 MERGE_DISTANCE = 24.0
 """Palette colors closer than this (RGB euclidean) are merged."""
 MIN_STRETCH_RANGE = 64
-"""Smaller level_white - level_black: no white paper, do not stretch."""
+"""Smaller level_background_color - level_foreground_color: no white paper, do
+not stretch."""
 FILENAME_POSTFIX = "_indexed"
 """Appended to the stem of the output filename: scan.png -> scan_indexed.png."""
 
@@ -45,9 +46,9 @@ class IndexedResult:
     """Palette image ('P') with 'colors' colors, at most PALETTE_COLORS."""
     colors: int
     """Number of colors after merging."""
-    level_black: int
+    level_foreground_color: int
     """Gray level of the raw image mapped to 0."""
-    level_white: int
+    level_background_color: int
     """Gray level of the raw image mapped to 255."""
 
 
@@ -86,10 +87,12 @@ def convert_indexed(image: Image.Image) -> IndexedResult:
     rgb = image.convert("RGB")
     smoothed = rgb.filter(ImageFilter.GaussianBlur(BLUR_RADIUS))
 
-    level_black, level_white = stretch_levels(smoothed.convert("L"))
-    if level_white - level_black < MIN_STRETCH_RANGE:
-        level_black, level_white = 0, 255
-    lut = stretch_lut(level_black, level_white)
+    level_foreground_color, level_background_color = stretch_levels(
+        smoothed.convert("L")
+    )
+    if level_background_color - level_foreground_color < MIN_STRETCH_RANGE:
+        level_foreground_color, level_background_color = 0, 255
+    lut = stretch_lut(level_foreground_color, level_background_color)
     stretched = smoothed.point(lut * 3)
 
     quantized = stretched.quantize(
@@ -101,6 +104,6 @@ def convert_indexed(image: Image.Image) -> IndexedResult:
     return IndexedResult(
         image=merged,
         colors=len(merged.getcolors() or []),
-        level_black=level_black,
-        level_white=level_white,
+        level_foreground_color=level_foreground_color,
+        level_background_color=level_background_color,
     )

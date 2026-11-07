@@ -36,9 +36,9 @@ from PIL import Image, ImageDraw
 
 from scan_postprocess.border import remove_border
 from scan_postprocess.bw import (
-    BLACK_FRACTION,
+    BACKGROUND_COLOR_FRACTION,
+    FOREGROUND_COLOR_FRACTION,
     GRAY_LEVELS,
-    WHITE_FRACTION,
     convert_bw,
     save_png_compressed,
 )
@@ -135,6 +135,7 @@ def read_scan_attributes() -> dict[str, ScanAttributes]:
 class BorderResult:
     attributes: ScanAttributes
     border_percent: float
+    background_color: tuple[int, int, int]
 
     @property
     def border_measured(self) -> bool:
@@ -151,7 +152,8 @@ class BorderResult:
             f"| {a.filename} | {a.type} | {a.content}"
             f" | {'yes' if a.border else 'no'} | {self.border_percent:.1f}"
             f" | {'yes' if self.border_measured else 'no'}"
-            f" | {'ok' if self.ok else 'FAIL'} |"
+            f" | {'ok' if self.ok else 'FAIL'}"
+            f" | {self.background_color} |"
         )
 
 
@@ -259,8 +261,9 @@ def test_border() -> None:
 
     DIRECTORY_BORDER_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
-        "| file | type | content | README.md | removed % | measured | result |",
-        "|---|---|---|---|---:|---|---|",
+        "| file | type | content | README.md | removed % | measured | result"
+        " | background color |",
+        "|---|---|---|---|---:|---|---|---|",
     ]
     print()
     print("\n".join(header))
@@ -277,6 +280,7 @@ def test_border() -> None:
         result = BorderResult(
             attributes=scan_attributes[filename.name],
             border_percent=100.0 * border.border_fraction,
+            background_color=border.background_color,
         )
         results.append(result)
         print(result.line)
@@ -360,7 +364,7 @@ def test_bw() -> None:
 
     DIRECTORY_BW_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
-        "| file | content | level black | level white | raw kB | bw kB | ratio |",
+        "| file | content | level foreground color | level background color | raw kB | bw kB | ratio |",
         "|---|---|---:|---:|---:|---:|---:|",
     ]
     print()
@@ -386,7 +390,7 @@ def test_bw() -> None:
         size_bw_total += size_bw
         a = scan_attributes[filename.name]
         line = (
-            f"| {a.filename} | {a.content} | {bw.level_black} | {bw.level_white}"
+            f"| {a.filename} | {a.content} | {bw.level_foreground_color} | {bw.level_background_color}"
             f" | {size_raw // 1024} | {size_bw // 1024}"
             f" | {size_raw / size_bw:.1f} |"
         )
@@ -395,8 +399,8 @@ def test_bw() -> None:
     duration_s = time.monotonic() - start
 
     summary = [
-        f"White: {100 * WHITE_FRACTION:.0f}% of the pixels,"
-        f" black: {100 * BLACK_FRACTION:.0f}% of the pixels,"
+        f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
+        f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" {GRAY_LEVELS} gray levels",
         f"Total: raw {size_raw_total // 1024} kB, bw {size_bw_total // 1024} kB,"
         f" ratio {size_raw_total / size_bw_total:.1f}",
@@ -423,7 +427,7 @@ def test_indexed() -> None:
 
     DIRECTORY_INDEXED_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
-        "| file | content | level black | level white | colors"
+        "| file | content | level foreground color | level background color | colors"
         " | raw kB | indexed kB | ratio |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
@@ -455,7 +459,7 @@ def test_indexed() -> None:
         a = scan_attributes[filename.name]
         line = (
             f"| {a.filename} | {a.content}"
-            f" | {indexed.level_black} | {indexed.level_white} | {colors}"
+            f" | {indexed.level_foreground_color} | {indexed.level_background_color} | {colors}"
             f" | {size_raw // 1024} | {size_indexed // 1024}"
             f" | {size_raw / size_indexed:.1f} |"
         )
@@ -464,8 +468,8 @@ def test_indexed() -> None:
     duration_s = time.monotonic() - start
 
     summary = [
-        f"White: {100 * WHITE_FRACTION:.0f}% of the pixels,"
-        f" black: {100 * BLACK_FRACTION:.0f}% of the pixels,"
+        f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
+        f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" blur radius {BLUR_RADIUS},"
         f" {PALETTE_COLORS} colors merged at distance {MERGE_DISTANCE}",
         f"Total: raw {size_raw_total // 1024} kB,"

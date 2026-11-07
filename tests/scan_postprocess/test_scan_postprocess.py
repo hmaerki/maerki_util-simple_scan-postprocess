@@ -13,16 +13,13 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   versus after border removal. Committed.
 - DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
   border removed and deskewed (scan_postprocess.postprocess). Not committed.
-- DIRECTORY_SCANS_RESULTS / "bw.md": levels and file sizes, every scan
-  converted with convert_bw. Committed.
-- DIRECTORY_SCANS_RESULTS / "bw_preview/*_bw16.png": every scan,
-  postprocessed and converted to GRAY_LEVELS gray levels, full resolution,
-  compressed. Not committed.
-- DIRECTORY_SCANS_RESULTS / "indexed.md": levels and file sizes, every scan
-  converted with convert_indexed. Committed.
-- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_color32.png": every scan,
-  postprocessed, smoothed, reduced to PALETTE_COLORS colors and
-  near-identical colors merged, full resolution, compressed. Not committed.
+- DIRECTORY_SCANS_RESULTS / "bw.md", "indexed.md": levels and file sizes of
+  every scan converted to 'bw' and to 'indexed' (PostprocessFile). Committed.
+- DIRECTORY_SCANS_RESULTS / "postprocess_preview/": the files written by
+  PostprocessFile, full resolution, compressed. Not committed.
+  - "*_bw16.png": converted to GRAY_LEVELS gray levels.
+  - "*_color32.png": smoothed, reduced to PALETTE_COLORS colors and
+    near-identical colors merged.
 
 Every test processes every scan, whatever its 'type' in README.md: this
 shows how each conversion behaves on the other types too. The summaries
@@ -41,7 +38,6 @@ from PIL import Image, ImageDraw
 from scan_postprocess.border import remove_border
 from scan_postprocess.bw import (
     BACKGROUND_COLOR_FRACTION,
-    BwResult,
     FILENAME_POSTFIX as FILENAME_POSTFIX_BW,
     FOREGROUND_COLOR_FRACTION,
     GRAY_LEVELS,
@@ -49,7 +45,6 @@ from scan_postprocess.bw import (
 from scan_postprocess.indexed import (
     BLUR_RADIUS,
     FILENAME_POSTFIX as FILENAME_POSTFIX_INDEXED,
-    IndexedResult,
     MERGE_DISTANCE,
     PALETTE_COLORS,
 )
@@ -66,9 +61,8 @@ DIRECTORY_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "border_preview"
 FILENAME_TILT_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt_border.md"
 DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_border_preview"
 FILENAME_BW_RESULTS = DIRECTORY_SCANS_RESULTS / "bw.md"
-DIRECTORY_BW_PREVIEW = DIRECTORY_SCANS_RESULTS / "bw_preview"
 FILENAME_INDEXED_RESULTS = DIRECTORY_SCANS_RESULTS / "indexed.md"
-DIRECTORY_INDEXED_PREVIEW = DIRECTORY_SCANS_RESULTS / "indexed_preview"
+DIRECTORY_POSTPROCESS_PREVIEW = DIRECTORY_SCANS_RESULTS / "postprocess_preview"
 
 TILT_TOLERANCE_DEGREES = 0.5
 PREVIEW_WIDTH = 1240
@@ -378,127 +372,100 @@ def size_totals(sizes: list[tuple[str, int, int]], name: str) -> list[str]:
     return lines
 
 
-def test_bw() -> None:
-    """Postprocess every scan and convert it to compressed grayscale."""
+def test_postprocess_file() -> None:
+    """The full chain for every scan: postprocess once, convert to bw and indexed."""
     scan_files, scan_attributes = scan_files_and_attributes()
 
-    header = [
+    header_bw = [
         "| file | type | content | level foreground color | level background color"
         " | raw kB | bw kB | ratio |",
         "|---|---|---|---:|---:|---:|---:|---:|",
     ]
-    print()
-    print("\n".join(header))
-
-    lines: list[str] = []
-    sizes: list[tuple[str, int, int]] = []
-    start = time.monotonic()
-    for filename in scan_files:
-        scan = PostprocessFile(filename, DIRECTORY_BW_PREVIEW, "bw")
-        scan.postprocess_file()
-        bw = scan.converted
-        assert isinstance(bw, BwResult)
-        assert scan.postprocessed is not None
-        assert bw.image.size == scan.postprocessed.image.size
-        assert bw.image.mode == "P"
-        assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
-        filename_bw = scan.filename_out
-        assert filename_bw.name == f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
-
-        size_raw = filename.stat().st_size
-        size_bw = filename_bw.stat().st_size
-        a = scan_attributes[filename.name]
-        sizes.append((a.type, size_raw, size_bw))
-        line = (
-            f"| {a.filename} | {a.type} | {a.content}"
-            f" | {bw.level_foreground_color} | {bw.level_background_color}"
-            f" | {size_raw // 1024} | {size_bw // 1024}"
-            f" | {size_raw / size_bw:.1f} |"
-        )
-        lines.append(line)
-        print(line)
-    duration_s = time.monotonic() - start
-
-    summary = [
-        f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-        f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-        f" {GRAY_LEVELS} gray levels",
-        *size_totals(sizes, "bw"),
-    ]
-    print()
-    print("\n".join(summary))
-    # Not written to the results file: it would change on every run.
-    print(f"Duration: {duration_s:.1f}s")
-    print(f"Results: {FILENAME_BW_RESULTS}")
-    print(f"Previews: {DIRECTORY_BW_PREVIEW}")
-
-    write_results(
-        FILENAME_BW_RESULTS,
-        "Scans converted to grayscale (bw)",
-        header + lines + [""] + [f"- {s}" for s in summary],
-    )
-
-
-def test_indexed() -> None:
-    """Postprocess every scan and reduce it to a compressed palette."""
-    scan_files, scan_attributes = scan_files_and_attributes()
-
-    header = [
+    header_indexed = [
         "| file | type | content | level foreground color | level background color"
         " | colors | raw kB | indexed kB | ratio |",
         "|---|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     print()
-    print("\n".join(header))
+    print("| file | type | content | raw kB | bw kB | indexed kB |")
 
-    lines: list[str] = []
-    sizes: list[tuple[str, int, int]] = []
+    lines_bw: list[str] = []
+    lines_indexed: list[str] = []
+    sizes_bw: list[tuple[str, int, int]] = []
+    sizes_indexed: list[tuple[str, int, int]] = []
     start = time.monotonic()
     for filename in scan_files:
-        scan = PostprocessFile(filename, DIRECTORY_INDEXED_PREVIEW, "indexed")
+        scan = PostprocessFile(filename, DIRECTORY_POSTPROCESS_PREVIEW)
         scan.postprocess_file()
-        indexed = scan.converted
-        assert isinstance(indexed, IndexedResult)
         assert scan.postprocessed is not None
-        assert indexed.image.size == scan.postprocessed.image.size
+        size = scan.postprocessed.image.size
+
+        bw = scan.converted_bw
+        assert bw is not None
+        assert bw.image.size == size
+        assert bw.image.mode == "P"
+        assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
+        filename_bw = scan.filename_out("bw")
+        assert filename_bw.name == f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
+
+        indexed = scan.converted_indexed
+        assert indexed is not None
+        assert indexed.image.size == size
         assert indexed.image.mode == "P"
-        colors = indexed.colors
-        assert colors == len(indexed.image.getcolors() or [])
-        assert colors <= PALETTE_COLORS
-        filename_indexed = scan.filename_out
+        assert indexed.colors == len(indexed.image.getcolors() or [])
+        assert indexed.colors <= PALETTE_COLORS
+        filename_indexed = scan.filename_out("indexed")
         assert filename_indexed.name == f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
 
         size_raw = filename.stat().st_size
+        size_bw = filename_bw.stat().st_size
         size_indexed = filename_indexed.stat().st_size
         a = scan_attributes[filename.name]
-        sizes.append((a.type, size_raw, size_indexed))
-        line = (
+        sizes_bw.append((a.type, size_raw, size_bw))
+        sizes_indexed.append((a.type, size_raw, size_indexed))
+        lines_bw.append(
+            f"| {a.filename} | {a.type} | {a.content}"
+            f" | {bw.level_foreground_color} | {bw.level_background_color}"
+            f" | {size_raw // 1024} | {size_bw // 1024}"
+            f" | {size_raw / size_bw:.1f} |"
+        )
+        lines_indexed.append(
             f"| {a.filename} | {a.type} | {a.content}"
             f" | {indexed.level_foreground_color} | {indexed.level_background_color}"
-            f" | {colors}"
+            f" | {indexed.colors}"
             f" | {size_raw // 1024} | {size_indexed // 1024}"
             f" | {size_raw / size_indexed:.1f} |"
         )
-        lines.append(line)
-        print(line)
+        print(
+            f"| {a.filename} | {a.type} | {a.content} | {size_raw // 1024}"
+            f" | {size_bw // 1024} | {size_indexed // 1024} |"
+        )
     duration_s = time.monotonic() - start
 
-    summary = [
+    levels = (
         f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-        f" blur radius {BLUR_RADIUS},"
+    )
+    summary_bw = [f"{levels} {GRAY_LEVELS} gray levels", *size_totals(sizes_bw, "bw")]
+    summary_indexed = [
+        f"{levels} blur radius {BLUR_RADIUS},"
         f" {PALETTE_COLORS} colors merged at distance {MERGE_DISTANCE}",
-        *size_totals(sizes, "indexed"),
+        *size_totals(sizes_indexed, "indexed"),
     ]
     print()
-    print("\n".join(summary))
+    print("\n".join(summary_bw + summary_indexed))
     # Not written to the results file: it would change on every run.
     print(f"Duration: {duration_s:.1f}s")
-    print(f"Results: {FILENAME_INDEXED_RESULTS}")
-    print(f"Previews: {DIRECTORY_INDEXED_PREVIEW}")
+    print(f"Results: {FILENAME_BW_RESULTS}, {FILENAME_INDEXED_RESULTS}")
+    print(f"Previews: {DIRECTORY_POSTPROCESS_PREVIEW}")
 
+    write_results(
+        FILENAME_BW_RESULTS,
+        "Scans converted to grayscale (bw)",
+        header_bw + lines_bw + [""] + [f"- {s}" for s in summary_bw],
+    )
     write_results(
         FILENAME_INDEXED_RESULTS,
         "Scans reduced to a color palette (indexed)",
-        header + lines + [""] + [f"- {s}" for s in summary],
+        header_indexed + lines_indexed + [""] + [f"- {s}" for s in summary_indexed],
     )

@@ -7,5 +7,4 @@
 tests/scan_postprocess/scans_0_raw_results/tilt_preview/
 tests/scan_postprocess/scans_0_raw_results/border_preview/
 tests/scan_postprocess/scans_0_raw_results/tilt_border_preview/
-tests/scan_postprocess/scans_0_raw_results/bw_preview/
-tests/scan_postprocess/scans_0_raw_results/indexed_preview/
+tests/scan_postprocess/scans_0_raw_results/postprocess_preview/

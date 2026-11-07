@@ -32,6 +32,9 @@ brightness, but are two clearly separate color groups.)
      becomes pure white.
    - Black point: the gray of the ink (the darkest group with enough pixels,
      if dark enough), the same for all channels: blue ink stays blue.
+   - Stroke width: the pixels of the background group and the pixels near
+     the ink (INK_EDGE_DISTANCE) are split anew by their gray, at
+     INK_THRESHOLD between ink and background: ink or background, no halo.
    Finally colors closer than merge_distance are merged again: shades of
    white after the stretch, core colors that came closer in 3c.
 
@@ -71,6 +74,17 @@ INK_MAX_GRAY = 110
 most this."""
 INK_MIN_PAGE_FRACTION = 0.002
 """Step 3d: groups with fewer pixels are ignored when looking for the ink."""
+INK_THRESHOLD = 0.65
+"""Step 3d: the stroke width. The edge of a stroke is a ramp from the ink gray
+to the background gray. A pixel becomes ink if its gray lies within
+INK_THRESHOLD of the way from the ink to the background, otherwise background.
+0.5: the middle. Larger: bolder strokes (0.8: the holes of small letters start
+to close). Smaller: thinner strokes."""
+INK_EDGE_DISTANCE = 2
+"""Step 3d: INK_THRESHOLD applies to the pixels of the ink and the background
+group and to every pixel at most this far from an ink pixel: the edges of the
+strokes, whatever group step 3c gave them (light halos, colored fringes).
+Pixels farther away (photos, colored areas) keep their colors."""
 
 Conversion = Literal["bw", "indexed"]
 
@@ -131,7 +145,7 @@ class ConvertResult:
         smoothed = self.step3a_smooth(image)
         image_p = self.step3b_reduce(smoothed)
         image_p = self.step3c_clean(smoothed, image_p)
-        self.image = self.step3d_stretch(image_p)
+        self.image = self.step3d_stretch(smoothed, image_p)
         """Palette image ('P'), compact palette."""
         self.colors = len(self.image.getcolors() or [])
         """Number of colors in the palette."""
@@ -184,9 +198,10 @@ class ConvertResult:
             new_palette[has_core, channel] = sums[has_core] / core_counts[has_core]
         return self.make_image_p(mapped, new_palette)
 
-    def step3d_stretch(self, image_p: Image.Image) -> Image.Image:
+    def step3d_stretch(self, image: Image.Image, image_p: Image.Image) -> Image.Image:
         """Step 3d: if the background is white: background -> pure white,
-        ink -> black."""
+        ink -> black, the stroke width set by INK_THRESHOLD ('image': the
+        smoothed image)."""
         indices = np.asarray(image_p)
         palette = self.get_palette(image_p)
         counts = np.bincount(indices.ravel(), minlength=len(palette))
@@ -203,10 +218,28 @@ class ConvertResult:
             for i in range(1, len(palette))
             if counts[i] >= INK_MIN_PAGE_FRACTION * indices.size
         ]
-        ink_gray = min((gray[i] for i in candidates), default=255.0)
-        black = ink_gray if ink_gray <= INK_MAX_GRAY else 0.0
+        ink = min(candidates, key=lambda i: gray[i], default=None)
+        if ink is not None and gray[ink] > INK_MAX_GRAY:
+            ink = None
+        black = 0.0 if ink is None else gray[ink]
         self.level_foreground_color = round(black)
         self.level_background_color = round(gray[0])
+
+        if ink is not None:
+            # Stroke width: split the pixels of the background, the ink and the
+            # stroke edges by their gray on the smoothed image.
+            limit = gray[ink] + INK_THRESHOLD * (gray[0] - gray[ink])
+            pixels_gray = np.asarray(image.convert("L"))
+            is_ink = indices == ink
+            near_ink = np.asarray(
+                Image.fromarray(is_ink.astype(np.uint8) * 255).filter(
+                    ImageFilter.MaxFilter(2 * INK_EDGE_DISTANCE + 1)
+                )
+            ).astype(bool)
+            split = (indices == 0) | near_ink
+            indices = indices.copy()
+            indices[split & (pixels_gray <= limit)] = ink
+            indices[split & (pixels_gray > limit)] = 0
 
         span = np.maximum(background - black, 1.0)
         palette = np.clip((palette - black) / span * 255.0, 0.0, 255.0)

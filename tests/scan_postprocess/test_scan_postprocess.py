@@ -400,7 +400,7 @@ def test_postprocess_file() -> None:
         assert bw.image.size == size
         assert bw.image.mode == "P"
         assert len(bw.image.getcolors() or []) <= params_bw.palette_colors
-        filename_bw = scan.filename_out("bw")
+        filename_bw = scan.filename_out(params_bw.label)
         assert filename_bw.name == f"{filename.stem}{params_bw.filename_postfix}.png"
 
         indexed = scan.converted_indexed
@@ -409,7 +409,7 @@ def test_postprocess_file() -> None:
         assert indexed.image.mode == "P"
         assert indexed.colors == len(indexed.image.getcolors() or [])
         assert indexed.colors <= params_indexed.palette_colors
-        filename_indexed = scan.filename_out("indexed")
+        filename_indexed = scan.filename_out(params_indexed.label)
         assert (
             filename_indexed.name
             == f"{filename.stem}{params_indexed.filename_postfix}.png"
@@ -446,13 +446,13 @@ def test_postprocess_file() -> None:
     )
     summary_bw = [
         f"{levels} {params_bw.palette_colors} gray levels",
-        *size_totals(sizes_bw, "bw"),
+        *size_totals(sizes_bw, params_bw.label),
     ]
     summary_indexed = [
         f"{levels} blur radius {params_indexed.blur_radius},"
         f" {params_indexed.palette_colors} colors merged at distance"
         f" {params_indexed.merge_distance}",
-        *size_totals(sizes_indexed, "indexed"),
+        *size_totals(sizes_indexed, params_indexed.label),
     ]
     print()
     print("\n".join(summary_bw + summary_indexed))

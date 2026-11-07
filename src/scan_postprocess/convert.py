@@ -41,6 +41,8 @@ Conversion = Literal["bw", "indexed"]
 
 @dataclasses.dataclass(frozen=True)
 class ConvertParams:
+    label: Conversion
+    """Name of the conversion: 'bw' or 'indexed'."""
     grayscale: bool
     """True: gray image, fixed gray palette. False: RGB, adaptive palette."""
     palette_colors: int
@@ -60,21 +62,24 @@ class ConvertParams:
         return f"_{'bw' if self.grayscale else 'color'}{self.palette_colors}"
 
 
+PARAMS_BW = ConvertParams(
+    label="bw",
+    grayscale=True,
+    palette_colors=16,
+    blur_radius=0.0,
+    merge_distance=0.0,
+    min_stretch_range=64,
+)
+PARAMS_INDEXED = ConvertParams(
+    label="indexed",
+    grayscale=False,
+    palette_colors=32,
+    blur_radius=1.0,
+    merge_distance=24.0,
+    min_stretch_range=64,
+)
 PARAMS: dict[Conversion, ConvertParams] = {
-    "bw": ConvertParams(
-        grayscale=True,
-        palette_colors=16,
-        blur_radius=0.0,
-        merge_distance=0.0,
-        min_stretch_range=0,
-    ),
-    "indexed": ConvertParams(
-        grayscale=False,
-        palette_colors=32,
-        blur_radius=1.0,
-        merge_distance=24.0,
-        min_stretch_range=64,
-    ),
+    params.label: params for params in (PARAMS_BW, PARAMS_INDEXED)
 }
 
 

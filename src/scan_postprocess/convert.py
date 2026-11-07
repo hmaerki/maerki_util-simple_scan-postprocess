@@ -99,14 +99,14 @@ PARAMS_BW = ConvertParams(
     label="bw",
     grayscale=True,
     palette_colors=16,
-    blur_radius=1.0,
+    blur_radius=0.3,
     merge_distance=24.0,
 )
 PARAMS_INDEXED = ConvertParams(
     label="indexed",
     grayscale=False,
     palette_colors=32,
-    blur_radius=1.0,
+    blur_radius=0.3,
     merge_distance=24.0,
 )
 PARAMS: dict[Conversion, ConvertParams] = {

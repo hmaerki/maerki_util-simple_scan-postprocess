@@ -1,3 +1,3 @@
 # maerki_util-simple_scan-postprocess
 
-Postprocessing for `simple-scan` on linux.
+[Postprocessing](src/scan_postprocess/README.md) for `simple-scan` on linux.

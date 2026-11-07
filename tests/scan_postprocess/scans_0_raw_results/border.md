@@ -6,7 +6,7 @@ Written by tests/scan_postprocess/test_scan_postprocess.py.
 |---|---|---|---|---:|---|---|
 | scan_raw-01.png | bw | hand | no | 0.0 | no | ok |
 | scan_raw-02.png | indexed | hand | no | 0.0 | no | ok |
-| scan_raw-03.png | bw | hand | no | 0.1 | no | ok |
+| scan_raw-03.png | bw | hand | no | 0.0 | no | ok |
 | scan_raw-04.png | indexed | hand | no | 0.0 | no | ok |
 | scan_raw-05.png | color | mix | no | 0.0 | no | ok |
 | scan_raw-06.png | color | mix | no | 0.0 | no | ok |
@@ -21,11 +21,11 @@ Written by tests/scan_postprocess/test_scan_postprocess.py.
 | scan_raw-15.png | indexed | machine | no | 0.0 | no | ok |
 | scan_raw-16.png | indexed | machine | no | 0.0 | no | ok |
 | scan_raw-17.png | indexed | machine | no | 0.2 | no | ok |
-| scan_raw-18.png | color | mix | no | 0.1 | no | ok |
-| scan_raw-19.png | color | mix | no | 0.2 | no | ok |
-| scan_raw-20.png | color | mix | no | 0.2 | no | ok |
-| scan_raw-21.png | indexed | machine | yes | 50.3 | yes | ok |
-| scan_raw-22.png | indexed | machine | yes | 6.5 | yes | ok |
+| scan_raw-18.png | color | mix | no | 0.0 | no | ok |
+| scan_raw-19.png | color | mix | no | 0.0 | no | ok |
+| scan_raw-20.png | color | mix | no | 0.3 | no | ok |
+| scan_raw-21.png | indexed | machine | yes | 50.2 | yes | ok |
+| scan_raw-22.png | indexed | machine | yes | 5.9 | yes | ok |
 | scan_raw-23.png | indexed | machine | yes | 3.2 | yes | ok |
 | scan_raw-24.png | indexed | machine | yes | 3.4 | yes | ok |
 

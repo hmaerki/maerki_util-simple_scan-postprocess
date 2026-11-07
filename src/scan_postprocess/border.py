@@ -3,6 +3,12 @@
 The border is everything outside the paper: the scanner lid (neutral gray)
 and dark lines along the image edges. It is painted white, the image size
 does not change.
+
+The paper is a rectangle, so the border is too: first a pixel mask of the
+border is computed, then the page rectangle is fitted to it (see
+_page_rectangle). Everything outside the rectangle is border. This removes
+nibbled edges, where the paper edge or dark print near the edge was
+classified as lid.
 """
 
 from __future__ import annotations
@@ -35,7 +41,11 @@ _PAGE_LID_MIN_DISTANCE = 40
 """The lid is only detected if the page color differs at least this much."""
 
 _GROW_PIXELS = 1
-"""Grow the mask (working resolution) to also remove the shadow at the paper edge."""
+"""Shrink the page rectangle (working resolution) to also remove the shadow at
+the paper edge."""
+
+_PAGE_LINE_MAX_BORDER = 0.5
+"""A row/column belongs to the page if less than this fraction is border."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -74,15 +84,27 @@ def _dominant_color(rgb: np.ndarray) -> np.ndarray:
     return np.array([key // 256, (key // 16) % 16, key % 16]) * 16 + 8
 
 
-def _grow(mask: np.ndarray, pixels: int) -> np.ndarray:
-    for _ in range(pixels):
-        grown = mask.copy()
-        grown[1:, :] |= mask[:-1, :]
-        grown[:-1, :] |= mask[1:, :]
-        grown[:, 1:] |= mask[:, :-1]
-        grown[:, :-1] |= mask[:, 1:]
-        mask = grown
-    return mask
+def _page_range(border_fraction: np.ndarray) -> tuple[int, int]:
+    """Return (first, last + 1) of the outermost lines belonging to the page."""
+    page = np.flatnonzero(border_fraction < _PAGE_LINE_MAX_BORDER)
+    if page.size == 0:
+        return 0, len(border_fraction)
+    return int(page[0]), int(page[-1]) + 1
+
+
+def _page_rectangle(border: np.ndarray) -> tuple[int, int, int, int]:
+    """Fit the page rectangle (top, bottom, left, right) to the border mask.
+
+    The border fraction per row is measured within the page columns and vice
+    versa: a lid along the bottom must not make every column look like
+    border. Two iterations are enough for the rectangle to settle.
+    """
+    h, w = border.shape
+    top, bottom, left, right = 0, h, 0, w
+    for _ in range(2):
+        top, bottom = _page_range(border[:, left:right].mean(axis=1))
+        left, right = _page_range(border[top:bottom, :].mean(axis=0))
+    return top, bottom, left, right
 
 
 def border_mask(image: Image.Image) -> Image.Image:
@@ -128,7 +150,16 @@ def border_mask(image: Image.Image) -> Image.Image:
             )
             border |= _reconstruct(edge | border, lid | border)
 
-    border = _grow(border, _GROW_PIXELS) if np.any(border) else border
+    if np.any(border):
+        top, bottom, left, right = _page_rectangle(border)
+        # Shrink only the sides with a border: the shadow at the paper edge.
+        g = _GROW_PIXELS
+        top += g if top > 0 else 0
+        left += g if left > 0 else 0
+        bottom -= g if bottom < h else 0
+        right -= g if right < w else 0
+        border = np.ones((h, w), dtype=bool)
+        border[top:bottom, left:right] = False
     mask_small = Image.fromarray((border * 255).astype(np.uint8), mode="L")
     return mask_small.resize(image.size, resample=Image.Resampling.NEAREST)
 

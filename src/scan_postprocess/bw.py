@@ -35,6 +35,8 @@ class BwResult:
     """Gray level of the raw image mapped to 0."""
     level_background_color: int
     """Gray level of the raw image mapped to 255."""
+    colors: int = GRAY_LEVELS
+    """Palette size: GRAY_LEVELS (some levels may be unused)."""
 
 
 def stretch_levels(gray: Image.Image) -> tuple[int, int]:

@@ -41,20 +41,19 @@ from PIL import Image, ImageDraw
 from scan_postprocess.border import remove_border
 from scan_postprocess.bw import (
     BACKGROUND_COLOR_FRACTION,
+    BwResult,
     FILENAME_POSTFIX as FILENAME_POSTFIX_BW,
     FOREGROUND_COLOR_FRACTION,
     GRAY_LEVELS,
-    convert_bw,
-    save_png_compressed,
 )
 from scan_postprocess.indexed import (
     BLUR_RADIUS,
     FILENAME_POSTFIX as FILENAME_POSTFIX_INDEXED,
+    IndexedResult,
     MERGE_DISTANCE,
     PALETTE_COLORS,
-    convert_indexed,
 )
-from scan_postprocess.postprocess import postprocess
+from scan_postprocess.postprocess import postprocess, postprocess_file
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
 DIRECTORY_SCANS = pathlib.Path(__file__).parent / "scans_0_raw"
@@ -383,7 +382,6 @@ def test_bw() -> None:
     """Postprocess every scan and convert it to compressed grayscale."""
     scan_files, scan_attributes = scan_files_and_attributes()
 
-    DIRECTORY_BW_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
         "| file | type | content | level foreground color | level background color"
         " | raw kB | bw kB | ratio |",
@@ -396,14 +394,14 @@ def test_bw() -> None:
     sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
     for filename in scan_files:
-        with Image.open(filename) as image:
-            postprocessed = postprocess(image)
-        bw = convert_bw(postprocessed.image)
-        assert bw.image.size == postprocessed.image.size
+        result = postprocess_file(filename, DIRECTORY_BW_PREVIEW, "bw")
+        bw = result.converted
+        assert isinstance(bw, BwResult)
+        assert bw.image.size == result.postprocessed.image.size
         assert bw.image.mode == "P"
         assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
-        filename_bw = DIRECTORY_BW_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
-        save_png_compressed(bw.image, filename_bw)
+        filename_bw = result.filename_out
+        assert filename_bw.name == f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
 
         size_raw = filename.stat().st_size
         size_bw = filename_bw.stat().st_size
@@ -443,7 +441,6 @@ def test_indexed() -> None:
     """Postprocess every scan and reduce it to a compressed palette."""
     scan_files, scan_attributes = scan_files_and_attributes()
 
-    DIRECTORY_INDEXED_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
         "| file | type | content | level foreground color | level background color"
         " | colors | raw kB | indexed kB | ratio |",
@@ -456,18 +453,16 @@ def test_indexed() -> None:
     sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
     for filename in scan_files:
-        with Image.open(filename) as image:
-            postprocessed = postprocess(image)
-        indexed = convert_indexed(postprocessed.image)
-        assert indexed.image.size == postprocessed.image.size
+        result = postprocess_file(filename, DIRECTORY_INDEXED_PREVIEW, "indexed")
+        indexed = result.converted
+        assert isinstance(indexed, IndexedResult)
+        assert indexed.image.size == result.postprocessed.image.size
         assert indexed.image.mode == "P"
         colors = indexed.colors
         assert colors == len(indexed.image.getcolors() or [])
         assert colors <= PALETTE_COLORS
-        filename_indexed = (
-            DIRECTORY_INDEXED_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
-        )
-        save_png_compressed(indexed.image, filename_indexed, colors=colors)
+        filename_indexed = result.filename_out
+        assert filename_indexed.name == f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
 
         size_raw = filename.stat().st_size
         size_indexed = filename_indexed.stat().st_size

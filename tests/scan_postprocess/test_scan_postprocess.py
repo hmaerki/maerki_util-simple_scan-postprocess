@@ -13,16 +13,20 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   versus after border removal. Committed.
 - DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
   border removed and deskewed (scan_postprocess.postprocess). Not committed.
-- DIRECTORY_SCANS_RESULTS / "bw.md": levels and file sizes of the 'bw' scans.
-  Committed.
-- DIRECTORY_SCANS_RESULTS / "bw_preview/*_bw16.png": the 'bw' scans,
+- DIRECTORY_SCANS_RESULTS / "bw.md": levels and file sizes, every scan
+  converted with convert_bw. Committed.
+- DIRECTORY_SCANS_RESULTS / "bw_preview/*_bw16.png": every scan,
   postprocessed and converted to GRAY_LEVELS gray levels, full resolution,
   compressed. Not committed.
-- DIRECTORY_SCANS_RESULTS / "indexed.md": levels and file sizes of the
-  'indexed' scans. Committed.
-- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_color32.png": the 'indexed'
-  scans, postprocessed, smoothed, reduced to PALETTE_COLORS colors and
+- DIRECTORY_SCANS_RESULTS / "indexed.md": levels and file sizes, every scan
+  converted with convert_indexed. Committed.
+- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_color32.png": every scan,
+  postprocessed, smoothed, reduced to PALETTE_COLORS colors and
   near-identical colors merged, full resolution, compressed. Not committed.
+
+Every test processes every scan, whatever its 'type' in README.md: this
+shows how each conversion behaves on the other types too. The summaries
+add subtotals per type.
 """
 
 from __future__ import annotations
@@ -357,25 +361,40 @@ def test_tilt_border() -> None:
     )
 
 
+def size_totals(sizes: list[tuple[str, int, int]], name: str) -> list[str]:
+    """Summary lines from (type, size raw, size converted): total and per type."""
+    lines: list[str] = []
+    for label, selected in [("Total", sizes)] + [
+        (f"Type {t}", [x for x in sizes if x[0] == t])
+        for t in ("bw", "indexed", "color")
+    ]:
+        raw = sum(x[1] for x in selected)
+        converted = sum(x[2] for x in selected)
+        if converted:
+            lines.append(
+                f"{label}: raw {raw // 1024} kB, {name} {converted // 1024} kB,"
+                f" ratio {raw / converted:.1f}"
+            )
+    return lines
+
+
 def test_bw() -> None:
-    """Postprocess the 'bw' scans and convert them to compressed grayscale."""
+    """Postprocess every scan and convert it to compressed grayscale."""
     scan_files, scan_attributes = scan_files_and_attributes()
-    bw_files = [f for f in scan_files if scan_attributes[f.name].type == "bw"]
-    assert bw_files, "README.md lists no scan of type 'bw'"
 
     DIRECTORY_BW_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
-        "| file | content | level foreground color | level background color | raw kB | bw kB | ratio |",
-        "|---|---|---:|---:|---:|---:|---:|",
+        "| file | type | content | level foreground color | level background color"
+        " | raw kB | bw kB | ratio |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
     ]
     print()
     print("\n".join(header))
 
     lines: list[str] = []
-    size_raw_total = 0
-    size_bw_total = 0
+    sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
-    for filename in bw_files:
+    for filename in scan_files:
         with Image.open(filename) as image:
             postprocessed = postprocess(image)
         bw = convert_bw(postprocessed.image)
@@ -387,11 +406,11 @@ def test_bw() -> None:
 
         size_raw = filename.stat().st_size
         size_bw = filename_bw.stat().st_size
-        size_raw_total += size_raw
-        size_bw_total += size_bw
         a = scan_attributes[filename.name]
+        sizes.append((a.type, size_raw, size_bw))
         line = (
-            f"| {a.filename} | {a.content} | {bw.level_foreground_color} | {bw.level_background_color}"
+            f"| {a.filename} | {a.type} | {a.content}"
+            f" | {bw.level_foreground_color} | {bw.level_background_color}"
             f" | {size_raw // 1024} | {size_bw // 1024}"
             f" | {size_raw / size_bw:.1f} |"
         )
@@ -403,8 +422,7 @@ def test_bw() -> None:
         f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" {GRAY_LEVELS} gray levels",
-        f"Total: raw {size_raw_total // 1024} kB, bw {size_bw_total // 1024} kB,"
-        f" ratio {size_raw_total / size_bw_total:.1f}",
+        *size_totals(sizes, "bw"),
     ]
     print()
     print("\n".join(summary))
@@ -415,31 +433,28 @@ def test_bw() -> None:
 
     write_results(
         FILENAME_BW_RESULTS,
-        "Black/white scans converted to grayscale",
+        "Scans converted to grayscale (bw)",
         header + lines + [""] + [f"- {s}" for s in summary],
     )
 
 
 def test_indexed() -> None:
-    """Postprocess the 'indexed' scans and reduce them to a compressed palette."""
+    """Postprocess every scan and reduce it to a compressed palette."""
     scan_files, scan_attributes = scan_files_and_attributes()
-    indexed_files = [f for f in scan_files if scan_attributes[f.name].type == "indexed"]
-    assert indexed_files, "README.md lists no scan of type 'indexed'"
 
     DIRECTORY_INDEXED_PREVIEW.mkdir(parents=True, exist_ok=True)
     header = [
-        "| file | content | level foreground color | level background color | colors"
-        " | raw kB | indexed kB | ratio |",
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+        "| file | type | content | level foreground color | level background color"
+        " | colors | raw kB | indexed kB | ratio |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     print()
     print("\n".join(header))
 
     lines: list[str] = []
-    size_raw_total = 0
-    size_indexed_total = 0
+    sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
-    for filename in indexed_files:
+    for filename in scan_files:
         with Image.open(filename) as image:
             postprocessed = postprocess(image)
         indexed = convert_indexed(postprocessed.image)
@@ -455,12 +470,12 @@ def test_indexed() -> None:
 
         size_raw = filename.stat().st_size
         size_indexed = filename_indexed.stat().st_size
-        size_raw_total += size_raw
-        size_indexed_total += size_indexed
         a = scan_attributes[filename.name]
+        sizes.append((a.type, size_raw, size_indexed))
         line = (
-            f"| {a.filename} | {a.content}"
-            f" | {indexed.level_foreground_color} | {indexed.level_background_color} | {colors}"
+            f"| {a.filename} | {a.type} | {a.content}"
+            f" | {indexed.level_foreground_color} | {indexed.level_background_color}"
+            f" | {colors}"
             f" | {size_raw // 1024} | {size_indexed // 1024}"
             f" | {size_raw / size_indexed:.1f} |"
         )
@@ -473,9 +488,7 @@ def test_indexed() -> None:
         f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" blur radius {BLUR_RADIUS},"
         f" {PALETTE_COLORS} colors merged at distance {MERGE_DISTANCE}",
-        f"Total: raw {size_raw_total // 1024} kB,"
-        f" indexed {size_indexed_total // 1024} kB,"
-        f" ratio {size_raw_total / size_indexed_total:.1f}",
+        *size_totals(sizes, "indexed"),
     ]
     print()
     print("\n".join(summary))
@@ -486,6 +499,6 @@ def test_indexed() -> None:
 
     write_results(
         FILENAME_INDEXED_RESULTS,
-        "Indexed scans reduced to a color palette",
+        "Scans reduced to a color palette (indexed)",
         header + lines + [""] + [f"- {s}" for s in summary],
     )

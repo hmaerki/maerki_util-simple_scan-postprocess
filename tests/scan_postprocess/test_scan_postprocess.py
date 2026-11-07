@@ -15,12 +15,12 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   border removed and deskewed (scan_postprocess.postprocess). Not committed.
 - DIRECTORY_SCANS_RESULTS / "bw.md": levels and file sizes of the 'bw' scans.
   Committed.
-- DIRECTORY_SCANS_RESULTS / "bw_preview/*.png": the 'bw' scans, postprocessed
-  and converted to GRAY_LEVELS gray levels, full resolution, compressed.
-  Not committed.
+- DIRECTORY_SCANS_RESULTS / "bw_preview/*_bw16.png": the 'bw' scans,
+  postprocessed and converted to GRAY_LEVELS gray levels, full resolution,
+  compressed. Not committed.
 - DIRECTORY_SCANS_RESULTS / "indexed.md": levels and file sizes of the
   'indexed' scans. Committed.
-- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_indexed.png": the 'indexed'
+- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_color32.png": the 'indexed'
   scans, postprocessed, smoothed, reduced to PALETTE_COLORS colors and
   near-identical colors merged, full resolution, compressed. Not committed.
 """
@@ -37,6 +37,7 @@ from PIL import Image, ImageDraw
 from scan_postprocess.border import remove_border
 from scan_postprocess.bw import (
     BACKGROUND_COLOR_FRACTION,
+    FILENAME_POSTFIX as FILENAME_POSTFIX_BW,
     FOREGROUND_COLOR_FRACTION,
     GRAY_LEVELS,
     convert_bw,
@@ -44,7 +45,7 @@ from scan_postprocess.bw import (
 )
 from scan_postprocess.indexed import (
     BLUR_RADIUS,
-    FILENAME_POSTFIX,
+    FILENAME_POSTFIX as FILENAME_POSTFIX_INDEXED,
     MERGE_DISTANCE,
     PALETTE_COLORS,
     convert_indexed,
@@ -381,7 +382,7 @@ def test_bw() -> None:
         assert bw.image.size == postprocessed.image.size
         assert bw.image.mode == "P"
         assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
-        filename_bw = DIRECTORY_BW_PREVIEW / filename.name
+        filename_bw = DIRECTORY_BW_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
         save_png_compressed(bw.image, filename_bw)
 
         size_raw = filename.stat().st_size
@@ -448,7 +449,7 @@ def test_indexed() -> None:
         assert colors == len(indexed.image.getcolors() or [])
         assert colors <= PALETTE_COLORS
         filename_indexed = (
-            DIRECTORY_INDEXED_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX}.png"
+            DIRECTORY_INDEXED_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
         )
         save_png_compressed(indexed.image, filename_indexed, colors=colors)
 

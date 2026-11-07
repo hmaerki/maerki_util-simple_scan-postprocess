@@ -23,6 +23,8 @@ BACKGROUND_COLOR_FRACTION = 0.90
 FOREGROUND_COLOR_FRACTION = 0.01
 GRAY_LEVELS = 16
 """2, 4, 16 or 256: PNG supports 1, 2, 4 or 8 bits per pixel."""
+FILENAME_POSTFIX = f"_bw{GRAY_LEVELS}"
+"""Appended to the stem of the output filename: scan.png -> scan_bw16.png."""
 
 
 @dataclasses.dataclass(frozen=True)

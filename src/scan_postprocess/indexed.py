@@ -36,8 +36,8 @@ MERGE_DISTANCE = 24.0
 MIN_STRETCH_RANGE = 64
 """Smaller level_background_color - level_foreground_color: no white paper, do
 not stretch."""
-FILENAME_POSTFIX = "_indexed"
-"""Appended to the stem of the output filename: scan.png -> scan_indexed.png."""
+FILENAME_POSTFIX = f"_color{PALETTE_COLORS}"
+"""Appended to the stem of the output filename: scan.png -> scan_color32.png."""
 
 
 @dataclasses.dataclass(frozen=True)

@@ -1,4 +1,4 @@
-"""Reduce the colors of a postprocessed scan to a small palette.
+"""Reduce the colors of a preprocessed scan to a small palette.
 
 One processing for both conversions, controlled by ConvertParams:
 1. Smooth with a gaussian filter (blur_radius, 0: off): removes the scanner
@@ -84,7 +84,7 @@ PARAMS: dict[Conversion, ConvertParams] = {
 
 
 class ConvertResult:
-    """Convert a postprocessed scan: ConvertResult(image, params).
+    """Convert a preprocessed scan: ConvertResult(image, params).
 
     The constructor runs the steps 1 to 4 (see the module docstring); the
     result is in the attributes. save() writes it as compressed PNG.

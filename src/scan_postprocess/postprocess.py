@@ -2,7 +2,7 @@
 
 PostprocessFile.postprocess_file() runs every step in this order:
 1. Read the raw scan.
-2. postprocess(): geometry.
+2. preprocess(): geometry.
    a. Remove the border (scanner lid, dark edge lines), paint it with the
       background color (scan_postprocess.border).
    b. Estimate the tilt on the border-free image: the straight, axis aligned
@@ -32,14 +32,14 @@ from scan_postprocess.tilt import estimate_tilt
 
 
 @dataclasses.dataclass(frozen=True)
-class PostprocessResult:
+class PreprocessResult:
     image: Image.Image
     tilt: float
     """Tilt in degrees, measured after border removal."""
     border_fraction: float
 
 
-def postprocess(image: Image.Image) -> PostprocessResult:
+def preprocess(image: Image.Image) -> PreprocessResult:
     """Step 2: remove the border, then deskew."""
     border = remove_border(image)
     tilt = estimate_tilt(border.image)
@@ -49,7 +49,7 @@ def postprocess(image: Image.Image) -> PostprocessResult:
         fillcolor=border.background_color,
     )
     assert deskewed.size == image.size
-    return PostprocessResult(
+    return PreprocessResult(
         image=deskewed,
         tilt=tilt,
         border_fraction=border.border_fraction,
@@ -57,7 +57,7 @@ def postprocess(image: Image.Image) -> PostprocessResult:
 
 
 class PostprocessFile:
-    """The full chain for one scan file: read, postprocess, convert, save.
+    """The full chain for one scan file: read, preprocess, convert, save.
 
     Every scan is converted both to 'bw' and to 'indexed'.
 
@@ -70,7 +70,7 @@ class PostprocessFile:
     def __init__(self, filename: pathlib.Path, directory_out: pathlib.Path) -> None:
         self.filename = filename
         self.directory_out = directory_out
-        self.postprocessed: PostprocessResult | None = None
+        self.preprocessed: PreprocessResult | None = None
         """Result of step 2: border removed and deskewed."""
         self.converted_bw: ConvertResult | None = None
         """Result of step 3, 'bw': 16 gray levels."""
@@ -83,12 +83,16 @@ class PostprocessFile:
         return self.directory_out / f"{self.filename.stem}{postfix}.png"
 
     def postprocess_file(self) -> None:
-        """The full chain: read, postprocess, convert, save."""
+        """The full chain: read, preprocess, convert, save."""
         with Image.open(self.filename) as image:
-            self.postprocessed = postprocess(image)
-        self.converted_bw = ConvertResult(self.postprocessed.image, PARAMS["bw"])
+            self.preprocessed = preprocess(image)
+        self.converted_bw = ConvertResult(
+            self.preprocessed.image,
+            PARAMS["bw"],
+        )
         self.converted_indexed = ConvertResult(
-            self.postprocessed.image, PARAMS["indexed"]
+            self.preprocessed.image,
+            PARAMS["indexed"],
         )
         self.save()
 

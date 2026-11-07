@@ -12,7 +12,8 @@ Outputs, to see the effect of changes in 'scan_postprocess':
 - DIRECTORY_SCANS_RESULTS / "tilt_border.md": tilt measured on the raw scan
   versus after border removal. Committed.
 - DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
-  border removed and deskewed (scan_postprocess.postprocess). Not committed.
+  border removed and deskewed (scan_postprocess.postprocess.preprocess).
+  Not committed.
 - DIRECTORY_SCANS_RESULTS / "bw.md", "indexed.md": levels and file sizes of
   every scan converted to 'bw' and to 'indexed' (PostprocessFile). Committed.
 - DIRECTORY_SCANS_RESULTS / "postprocess_preview/": the files written by
@@ -41,7 +42,7 @@ from scan_postprocess.convert import (
     FOREGROUND_COLOR_FRACTION,
     PARAMS,
 )
-from scan_postprocess.postprocess import PostprocessFile, postprocess
+from scan_postprocess.postprocess import PostprocessFile, preprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
 DIRECTORY_SCANS = pathlib.Path(__file__).parent / "scans_0_raw"
@@ -318,7 +319,7 @@ def test_tilt_border() -> None:
     for filename in scan_files:
         with Image.open(filename) as image:
             tilt_raw = estimate_tilt(image)
-            result = postprocess(image)
+            result = preprocess(image)
             assert result.image.size == image.size, "The image size must not change"
         scale = PREVIEW_WIDTH / result.image.width
         result.image.resize(
@@ -366,7 +367,7 @@ def size_totals(sizes: list[tuple[str, int, int]], name: str) -> list[str]:
 
 
 def test_postprocess_file() -> None:
-    """The full chain for every scan: postprocess once, convert to bw and indexed."""
+    """The full chain for every scan: preprocess once, convert to bw and indexed."""
     scan_files, scan_attributes = scan_files_and_attributes()
     params_bw = PARAMS["bw"]
     params_indexed = PARAMS["indexed"]
@@ -392,8 +393,8 @@ def test_postprocess_file() -> None:
     for filename in scan_files:
         scan = PostprocessFile(filename, DIRECTORY_POSTPROCESS_PREVIEW)
         scan.postprocess_file()
-        assert scan.postprocessed is not None
-        size = scan.postprocessed.image.size
+        assert scan.preprocessed is not None
+        size = scan.preprocessed.image.size
 
         bw = scan.converted_bw
         assert bw is not None

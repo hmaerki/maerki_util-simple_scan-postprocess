@@ -18,6 +18,11 @@ Outputs, to see the effect of changes in 'scan_postprocess':
 - DIRECTORY_SCANS_RESULTS / "bw_preview/*.png": the 'bw' scans, postprocessed
   and converted to GRAY_LEVELS gray levels, full resolution, compressed.
   Not committed.
+- DIRECTORY_SCANS_RESULTS / "indexed.md": levels and file sizes of the
+  'indexed' scans. Committed.
+- DIRECTORY_SCANS_RESULTS / "indexed_preview/*_indexed.png": the 'indexed'
+  scans, postprocessed, smoothed, reduced to PALETTE_COLORS colors and
+  near-identical colors merged, full resolution, compressed. Not committed.
 """
 
 from __future__ import annotations
@@ -37,6 +42,13 @@ from scan_postprocess.bw import (
     convert_bw,
     save_png_compressed,
 )
+from scan_postprocess.indexed import (
+    BLUR_RADIUS,
+    FILENAME_POSTFIX,
+    MERGE_DISTANCE,
+    PALETTE_COLORS,
+    convert_indexed,
+)
 from scan_postprocess.postprocess import postprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
@@ -51,6 +63,8 @@ FILENAME_TILT_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt_border.md"
 DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_border_preview"
 FILENAME_BW_RESULTS = DIRECTORY_SCANS_RESULTS / "bw.md"
 DIRECTORY_BW_PREVIEW = DIRECTORY_SCANS_RESULTS / "bw_preview"
+FILENAME_INDEXED_RESULTS = DIRECTORY_SCANS_RESULTS / "indexed.md"
+DIRECTORY_INDEXED_PREVIEW = DIRECTORY_SCANS_RESULTS / "indexed_preview"
 
 TILT_TOLERANCE_DEGREES = 0.5
 PREVIEW_WIDTH = 1240
@@ -397,5 +411,76 @@ def test_bw() -> None:
     write_results(
         FILENAME_BW_RESULTS,
         "Black/white scans converted to grayscale",
+        header + lines + [""] + [f"- {s}" for s in summary],
+    )
+
+
+def test_indexed() -> None:
+    """Postprocess the 'indexed' scans and reduce them to a compressed palette."""
+    scan_files, scan_attributes = scan_files_and_attributes()
+    indexed_files = [f for f in scan_files if scan_attributes[f.name].type == "indexed"]
+    assert indexed_files, "README.md lists no scan of type 'indexed'"
+
+    DIRECTORY_INDEXED_PREVIEW.mkdir(parents=True, exist_ok=True)
+    header = [
+        "| file | content | level black | level white | colors"
+        " | raw kB | indexed kB | ratio |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    print()
+    print("\n".join(header))
+
+    lines: list[str] = []
+    size_raw_total = 0
+    size_indexed_total = 0
+    start = time.monotonic()
+    for filename in indexed_files:
+        with Image.open(filename) as image:
+            postprocessed = postprocess(image)
+        indexed = convert_indexed(postprocessed.image)
+        assert indexed.image.size == postprocessed.image.size
+        assert indexed.image.mode == "P"
+        colors = indexed.colors
+        assert colors == len(indexed.image.getcolors() or [])
+        assert colors <= PALETTE_COLORS
+        filename_indexed = (
+            DIRECTORY_INDEXED_PREVIEW / f"{filename.stem}{FILENAME_POSTFIX}.png"
+        )
+        save_png_compressed(indexed.image, filename_indexed, colors=colors)
+
+        size_raw = filename.stat().st_size
+        size_indexed = filename_indexed.stat().st_size
+        size_raw_total += size_raw
+        size_indexed_total += size_indexed
+        a = scan_attributes[filename.name]
+        line = (
+            f"| {a.filename} | {a.content}"
+            f" | {indexed.level_black} | {indexed.level_white} | {colors}"
+            f" | {size_raw // 1024} | {size_indexed // 1024}"
+            f" | {size_raw / size_indexed:.1f} |"
+        )
+        lines.append(line)
+        print(line)
+    duration_s = time.monotonic() - start
+
+    summary = [
+        f"White: {100 * WHITE_FRACTION:.0f}% of the pixels,"
+        f" black: {100 * BLACK_FRACTION:.0f}% of the pixels,"
+        f" blur radius {BLUR_RADIUS},"
+        f" {PALETTE_COLORS} colors merged at distance {MERGE_DISTANCE}",
+        f"Total: raw {size_raw_total // 1024} kB,"
+        f" indexed {size_indexed_total // 1024} kB,"
+        f" ratio {size_raw_total / size_indexed_total:.1f}",
+    ]
+    print()
+    print("\n".join(summary))
+    # Not written to the results file: it would change on every run.
+    print(f"Duration: {duration_s:.1f}s")
+    print(f"Results: {FILENAME_INDEXED_RESULTS}")
+    print(f"Previews: {DIRECTORY_INDEXED_PREVIEW}")
+
+    write_results(
+        FILENAME_INDEXED_RESULTS,
+        "Indexed scans reduced to a color palette",
         header + lines + [""] + [f"- {s}" for s in summary],
     )

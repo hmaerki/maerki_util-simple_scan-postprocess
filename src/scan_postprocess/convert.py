@@ -1,10 +1,11 @@
 """Reduce the colors of a preprocessed scan to a small palette.
 
-One processing for both conversions, controlled by ConvertParams:
-1. Smooth with a gaussian filter (blur_radius, 0: off): removes the scanner
+One processing for both conversions, controlled by ConvertParams. The steps
+are numbered as in README_DESIGN.md: step 3 of the full chain.
+3a. Smooth with a gaussian filter (blur_radius, 0: off): removes the scanner
    noise, which would otherwise be spread over many palette colors and spoil
    the compression.
-2. Measure the foreground and background color levels on the grayscale image:
+3b. Measure the foreground and background color levels on the grayscale image:
    - BACKGROUND_COLOR_FRACTION of the pixels are background (paper): they
      become pure white.
    - FOREGROUND_COLOR_FRACTION of the pixels are foreground (ink): they become
@@ -12,14 +13,14 @@ One processing for both conversions, controlled by ConvertParams:
    Exception: colored pages (book covers) have no white paper. The measured
    levels are then close together (less than min_stretch_range) and the image
    is not stretched: level_foreground_color=0, level_background_color=255.
-3. Stretch linearly with these levels and reduce to palette_colors colors.
+3c. Stretch linearly with these levels and reduce to palette_colors colors.
    The only logical difference between the conversions:
    - grayscale=True ('bw'): the gray image is stretched; the palette is fixed,
      palette_colors evenly spaced grays from black to white.
    - grayscale=False ('indexed'): every RGB channel is stretched, the hues are
      kept; the palette is adaptive (median cut), without dithering (dithering
      would spoil the compression).
-4. Merge near-identical palette colors (closer than merge_distance, 0: off):
+3d. Merge near-identical palette colors (closer than merge_distance, 0: off):
    a flat background is often split into several shades.
 """
 
@@ -86,30 +87,30 @@ PARAMS: dict[Conversion, ConvertParams] = {
 class ConvertResult:
     """Convert a preprocessed scan: ConvertResult(image, params).
 
-    The constructor runs the steps 1 to 4 (see the module docstring); the
-    result is in the attributes. save() writes it as compressed PNG.
+    The constructor runs the steps 3a to 3d (see the module docstring); the
+    result is in the attributes. step4_save() writes it as compressed PNG.
     """
 
     def __init__(self, image: Image.Image, params: ConvertParams) -> None:
         self.params = params
-        smoothed = self._smooth(image)
-        self.level_foreground_color, self.level_background_color = self._measure_levels(
-            smoothed
+        smoothed = self.step3a_smooth(image)
+        self.level_foreground_color, self.level_background_color = (
+            self.step3b_measure_levels(smoothed)
         )
         """Gray level of the raw image mapped to 0 and to 255."""
-        self.image, self.colors = self._merge(self._reduce(smoothed))
+        self.image, self.colors = self.step3d_merge(self.step3c_reduce(smoothed))
         """Palette image ('P'). Palette size: grayscale palette_colors (some
         levels may be unused), otherwise the number of colors after merging."""
 
-    def _smooth(self, image: Image.Image) -> Image.Image:
-        """Step 1: gray or RGB, gaussian filter."""
+    def step3a_smooth(self, image: Image.Image) -> Image.Image:
+        """Step 3a: gray or RGB, gaussian filter."""
         image = image.convert("L" if self.params.grayscale else "RGB")
         if self.params.blur_radius > 0:
             image = image.filter(ImageFilter.GaussianBlur(self.params.blur_radius))
         return image
 
-    def _measure_levels(self, image: Image.Image) -> tuple[int, int]:
-        """Step 2: measure the levels, always on the gray image."""
+    def step3b_measure_levels(self, image: Image.Image) -> tuple[int, int]:
+        """Step 3b: measure the levels, always on the gray image."""
         gray = image if self.params.grayscale else image.convert("L")
         level_foreground_color, level_background_color = self.stretch_levels(gray)
         if (
@@ -119,8 +120,8 @@ class ConvertResult:
             return 0, 255
         return level_foreground_color, level_background_color
 
-    def _reduce(self, image: Image.Image) -> Image.Image:
-        """Step 3: stretch and reduce to a palette."""
+    def step3c_reduce(self, image: Image.Image) -> Image.Image:
+        """Step 3c: stretch and reduce to a palette."""
         if self.params.grayscale:
             # One lookup table: raw gray level -> stretched -> palette index.
             lut = self.stretch_lut(
@@ -139,15 +140,15 @@ class ConvertResult:
             dither=Image.Dither.NONE,
         )
 
-    def _merge(self, image_p: Image.Image) -> tuple[Image.Image, int]:
-        """Step 4: merge near-identical colors. Returns (image, colors)."""
+    def step3d_merge(self, image_p: Image.Image) -> tuple[Image.Image, int]:
+        """Step 3d: merge near-identical colors. Returns (image, colors)."""
         if self.params.merge_distance > 0:
             image_p = self.merge_palette(image_p, self.params.merge_distance)
             return image_p, len(image_p.getcolors() or [])
         return image_p, self.params.palette_colors
 
-    def save(self, filename: pathlib.Path) -> None:
-        """Save as compressed palette PNG.
+    def step4_save(self, filename: pathlib.Path) -> None:
+        """Step 4: save as compressed palette PNG.
 
         PNG supports 1, 2, 4 or 8 bits: more than 16 colors are stored with 8.
         """

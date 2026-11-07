@@ -5,18 +5,18 @@ Outputs, to see the effect of changes in 'scan_postprocess':
 - stdout: one line per scan plus a summary (run 'pytest -s').
 - DIRECTORY_SCANS_RESULTS / "tilt.md", "border.md": the same tables. They are
   committed: 'git diff' shows which scans changed.
-- DIRECTORY_SCANS_RESULTS / "tilt_preview/*.png": every scan deskewed with
+- DIRECTORY_SCANS_RESULTS / "step2b_tilt/*.png": every scan deskewed with
   the measured tilt and overlaid with horizontal lines. Not committed.
-- DIRECTORY_SCANS_RESULTS / "border_preview/*.png": every scan with the
+- DIRECTORY_SCANS_RESULTS / "step2a_border/*.png": every scan with the
   removed border painted magenta. Not committed.
 - DIRECTORY_SCANS_RESULTS / "tilt_border.md": tilt measured on the raw scan
   versus after border removal. Committed.
-- DIRECTORY_SCANS_RESULTS / "tilt_border_preview/*.png": every scan with the
-  border removed and deskewed (scan_postprocess.postprocess.preprocess).
+- DIRECTORY_SCANS_RESULTS / "step2c_tilt_border/*.png": every scan with the
+  border removed and deskewed (scan_postprocess.postprocess.step2_preprocess).
   Not committed.
 - DIRECTORY_SCANS_RESULTS / "bw.md", "indexed.md": levels and file sizes of
   every scan converted to 'bw' and to 'indexed' (PostprocessFile). Committed.
-- DIRECTORY_SCANS_RESULTS / "postprocess_preview/": the files written by
+- DIRECTORY_SCANS_RESULTS / "step4_postprocess/": the files written by
   PostprocessFile, full resolution, compressed. Not committed.
   - "*_bw16.png": converted with PARAMS["bw"]: 16 gray levels.
   - "*_indexed32.png": converted with PARAMS["indexed"]: smoothed, reduced to
@@ -36,27 +36,27 @@ import time
 
 from PIL import Image, ImageDraw
 
-from scan_postprocess.border import remove_border
+from scan_postprocess.border import step2a_remove_border
 from scan_postprocess.convert import (
     BACKGROUND_COLOR_FRACTION,
     FOREGROUND_COLOR_FRACTION,
     PARAMS,
 )
-from scan_postprocess.postprocess import PostprocessFile, preprocess
-from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
+from scan_postprocess.postprocess import PostprocessFile, step2_preprocess
+from scan_postprocess.tilt import TILT_MAX_DEGREES, step2b_estimate_tilt
 
 DIRECTORY_SCANS = pathlib.Path(__file__).parent / "scans_0_raw"
 FILENAME_README = DIRECTORY_SCANS / "README.md"
 DIRECTORY_SCANS_RESULTS = pathlib.Path(__file__).parent / "scans_0_raw_results"
 FILENAME_TILT_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt.md"
-DIRECTORY_TILT_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_preview"
+DIRECTORY_TILT_PREVIEW = DIRECTORY_SCANS_RESULTS / "step2b_tilt"
 FILENAME_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "border.md"
-DIRECTORY_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "border_preview"
+DIRECTORY_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "step2a_border"
 FILENAME_TILT_BORDER_RESULTS = DIRECTORY_SCANS_RESULTS / "tilt_border.md"
-DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "tilt_border_preview"
+DIRECTORY_TILT_BORDER_PREVIEW = DIRECTORY_SCANS_RESULTS / "step2c_tilt_border"
 FILENAME_BW_RESULTS = DIRECTORY_SCANS_RESULTS / "bw.md"
 FILENAME_INDEXED_RESULTS = DIRECTORY_SCANS_RESULTS / "indexed.md"
-DIRECTORY_POSTPROCESS_PREVIEW = DIRECTORY_SCANS_RESULTS / "postprocess_preview"
+DIRECTORY_POSTPROCESS_PREVIEW = DIRECTORY_SCANS_RESULTS / "step4_postprocess"
 
 TILT_TOLERANCE_DEGREES = 0.5
 PREVIEW_WIDTH = 1240
@@ -199,7 +199,7 @@ def test_tilt() -> None:
     for filename in scan_files:
         with Image.open(filename) as image:
             # Measured from the pixels of the PNG (Pillow + numpy).
-            tilt = estimate_tilt(image)
+            tilt = step2b_estimate_tilt(image)
             write_preview(image, tilt, DIRECTORY_TILT_PREVIEW / f"{filename.stem}.png")
         result = TiltResult(
             attributes=scan_attributes[filename.name], tilt_measured=tilt
@@ -265,7 +265,7 @@ def test_border() -> None:
     start = time.monotonic()
     for filename in scan_files:
         with Image.open(filename) as image:
-            border = remove_border(image)
+            border = step2a_remove_border(image)
             assert border.image.size == image.size, "The image size must not change"
             write_border_preview(
                 image, border.mask, DIRECTORY_BORDER_PREVIEW / f"{filename.stem}.png"
@@ -318,8 +318,8 @@ def test_tilt_border() -> None:
     start = time.monotonic()
     for filename in scan_files:
         with Image.open(filename) as image:
-            tilt_raw = estimate_tilt(image)
-            result = preprocess(image)
+            tilt_raw = step2b_estimate_tilt(image)
+            result = step2_preprocess(image)
             assert result.image.size == image.size, "The image size must not change"
         scale = PREVIEW_WIDTH / result.image.width
         result.image.resize(

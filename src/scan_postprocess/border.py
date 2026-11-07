@@ -182,7 +182,7 @@ def border_mask(image: Image.Image) -> tuple[Image.Image, tuple[int, int, int]]:
     return mask, background_color
 
 
-def remove_border(image: Image.Image) -> BorderResult:
+def step2a_remove_border(image: Image.Image) -> BorderResult:
     """Paint the border with the background color. Same size as 'image'."""
     mask, background_color = border_mask(image)
     result = image.convert("RGB")
@@ -193,4 +193,4 @@ def remove_border(image: Image.Image) -> BorderResult:
 
 def remove_border_file(filename: pathlib.Path) -> BorderResult:
     with Image.open(filename) as image:
-        return remove_border(image)
+        return step2a_remove_border(image)

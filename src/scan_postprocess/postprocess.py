@@ -1,22 +1,24 @@
 """Postprocess a scanned page: the full chain from the raw scan to the file.
 
-PostprocessFile.postprocess_file() runs every step in this order:
-1. Read the raw scan.
-2. preprocess(): geometry.
-   a. Remove the border (scanner lid, dark edge lines), paint it with the
-      background color (scan_postprocess.border).
-   b. Estimate the tilt on the border-free image: the straight, axis aligned
-      border edges would otherwise pull the estimate towards 0 degrees
-      (scan_postprocess.tilt).
-   c. Rotate by -tilt. The corners uncovered by the rotation are filled with
-      the background color, like the removed border. The image size does not
-      change.
-3. Reduce the colors, both conversions (scan_postprocess.convert):
+PostprocessFile.postprocess_file() runs every step in this order (see
+README_DESIGN.md). Every function or method implementing a step is prefixed
+with step<number>_.
+1. step1_read(): read the raw scan.
+2. step2_preprocess(): geometry.
+   a. step2a_remove_border(): remove the border (scanner lid, dark edge
+      lines), paint it with the background color (scan_postprocess.border).
+   b. step2b_estimate_tilt(): estimate the tilt on the border-free image: the
+      straight, axis aligned border edges would otherwise pull the estimate
+      towards 0 degrees (scan_postprocess.tilt).
+   c. step2c_deskew(): rotate by -tilt. The corners uncovered by the rotation
+      are filled with the background color, like the removed border. The
+      image size does not change.
+3. step3_convert(): reduce the colors, both conversions
+   (scan_postprocess.convert, steps 3a .. 3d):
    - "bw": 16 gray levels.
    - "indexed": smooth, up to 32 colors, merge similar colors.
-4. PostprocessFile.save(): both as compressed palette PNG, named
-   <stem><postfix>.png, for example scan-01-bw_bw16.png and
-   scan-01-bw_indexed32.png.
+4. step4_save(): both as compressed palette PNG, named <stem><postfix>.png,
+   for example scan-01-bw_bw16.png and scan-01-bw_indexed32.png.
 """
 
 from __future__ import annotations
@@ -26,9 +28,9 @@ import pathlib
 
 from PIL import Image
 
-from scan_postprocess.border import remove_border
+from scan_postprocess.border import step2a_remove_border
 from scan_postprocess.convert import Conversion, ConvertResult, PARAMS
-from scan_postprocess.tilt import estimate_tilt
+from scan_postprocess.tilt import step2b_estimate_tilt
 
 
 @dataclasses.dataclass(frozen=True)
@@ -39,16 +41,24 @@ class PreprocessResult:
     border_fraction: float
 
 
-def preprocess(image: Image.Image) -> PreprocessResult:
-    """Step 2: remove the border, then deskew."""
-    border = remove_border(image)
-    tilt = estimate_tilt(border.image)
-    deskewed = border.image.rotate(
+def step2c_deskew(
+    image: Image.Image, tilt: float, fillcolor: tuple[int, int, int]
+) -> Image.Image:
+    """Step 2c: rotate by -tilt, fill the uncovered corners with 'fillcolor'."""
+    deskewed = image.rotate(
         -tilt,
         resample=Image.Resampling.BICUBIC,
-        fillcolor=border.background_color,
+        fillcolor=fillcolor,
     )
     assert deskewed.size == image.size
+    return deskewed
+
+
+def step2_preprocess(image: Image.Image) -> PreprocessResult:
+    """Step 2: remove the border, then deskew."""
+    border = step2a_remove_border(image)
+    tilt = step2b_estimate_tilt(border.image)
+    deskewed = step2c_deskew(border.image, tilt, border.background_color)
     return PreprocessResult(
         image=deskewed,
         tilt=tilt,
@@ -84,8 +94,19 @@ class PostprocessFile:
 
     def postprocess_file(self) -> None:
         """The full chain: read, preprocess, convert, save."""
+        image = self.step1_read()
+        self.preprocessed = step2_preprocess(image)
+        self.step3_convert()
+        self.step4_save()
+
+    def step1_read(self) -> Image.Image:
+        """Step 1: read the raw scan."""
         with Image.open(self.filename) as image:
-            self.preprocessed = preprocess(image)
+            return image.copy()
+
+    def step3_convert(self) -> None:
+        """Step 3: convert to 'bw' and to 'indexed'."""
+        assert self.preprocessed is not None, "Call step2_preprocess() first"
         self.converted_bw = ConvertResult(
             self.preprocessed.image,
             PARAMS["bw"],
@@ -94,12 +115,11 @@ class PostprocessFile:
             self.preprocessed.image,
             PARAMS["indexed"],
         )
-        self.save()
 
-    def save(self) -> None:
+    def step4_save(self) -> None:
         """Step 4: save both conversions as compressed palette PNG."""
-        assert self.converted_bw is not None, "Call postprocess_file() first"
-        assert self.converted_indexed is not None, "Call postprocess_file() first"
+        assert self.converted_bw is not None, "Call step3_convert() first"
+        assert self.converted_indexed is not None, "Call step3_convert() first"
         self.directory_out.mkdir(parents=True, exist_ok=True)
         for converted in (self.converted_bw, self.converted_indexed):
-            converted.save(self.filename_out(converted.params.label))
+            converted.step4_save(self.filename_out(converted.params.label))

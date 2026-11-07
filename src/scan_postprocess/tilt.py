@@ -37,7 +37,7 @@ def _score(mask: Image.Image, angle_degrees: float) -> float:
     return float(np.sum(np.diff(rows) ** 2))
 
 
-def estimate_tilt(image: Image.Image) -> float:
+def step2b_estimate_tilt(image: Image.Image) -> float:
     """Return the tilt of the page in degrees.
 
     Positive: the content is rotated counter-clockwise (lines rise to the right).
@@ -62,4 +62,4 @@ def estimate_tilt(image: Image.Image) -> float:
 
 def estimate_tilt_file(filename: pathlib.Path) -> float:
     with Image.open(filename) as image:
-        return estimate_tilt(image)
+        return step2b_estimate_tilt(image)

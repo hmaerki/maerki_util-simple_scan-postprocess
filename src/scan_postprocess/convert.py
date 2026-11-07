@@ -59,7 +59,7 @@ class ConvertParams:
     @property
     def filename_postfix(self) -> str:
         """Appended to the stem of the output filename: scan.png -> scan_bw16.png."""
-        return f"_{'bw' if self.grayscale else 'color'}{self.palette_colors}"
+        return f"_{self.label}{self.palette_colors}"
 
 
 PARAMS_BW = ConvertParams(

@@ -16,7 +16,7 @@ PostprocessFile.postprocess_file() runs every step in this order:
    - "indexed": smooth, up to 32 colors, merge similar colors.
 4. PostprocessFile.save(): both as compressed palette PNG, named
    <stem><postfix>.png, for example scan-01-bw_bw16.png and
-   scan-01-bw_color32.png.
+   scan-01-bw_indexed32.png.
 """
 
 from __future__ import annotations

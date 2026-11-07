@@ -18,7 +18,7 @@ Outputs, to see the effect of changes in 'scan_postprocess':
 - DIRECTORY_SCANS_RESULTS / "postprocess_preview/": the files written by
   PostprocessFile, full resolution, compressed. Not committed.
   - "*_bw16.png": converted with PARAMS["bw"]: 16 gray levels.
-  - "*_color32.png": converted with PARAMS["indexed"]: smoothed, reduced to
+  - "*_indexed32.png": converted with PARAMS["indexed"]: smoothed, reduced to
     32 colors and near-identical colors merged.
 
 Every test processes every scan, whatever its 'type' in README.md: this
@@ -442,7 +442,7 @@ def test_postprocess_file() -> None:
 
     levels = (
         f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-        f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
+        f" Foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
     )
     summary_bw = [
         f"{levels} {params_bw.palette_colors} gray levels",

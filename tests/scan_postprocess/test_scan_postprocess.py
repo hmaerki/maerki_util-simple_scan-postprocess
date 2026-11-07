@@ -18,9 +18,8 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   every scan converted to 'bw' and to 'indexed' (PostprocessFile). Committed.
 - DIRECTORY_SCANS_RESULTS / "step4_postprocess/": the files written by
   PostprocessFile, full resolution, compressed. Not committed.
-  - "*_bw16.png": converted with PARAMS["bw"]: 16 gray levels.
-  - "*_indexed32.png": converted with PARAMS["indexed"]: smoothed, reduced to
-    32 colors and near-identical colors merged.
+  - "*_bw16.png": converted with PARAMS["bw"]: at most 16 gray levels.
+  - "*_indexed32.png": converted with PARAMS["indexed"]: at most 32 colors.
 
 Every test processes every scan, whatever its 'type' in README.md: this
 shows how each conversion behaves on the other types too. The summaries
@@ -37,11 +36,7 @@ import time
 from PIL import Image, ImageDraw
 
 from scan_postprocess.border import step2a_remove_border
-from scan_postprocess.convert import (
-    BACKGROUND_COLOR_FRACTION,
-    FOREGROUND_COLOR_FRACTION,
-    PARAMS,
-)
+from scan_postprocess.convert import PARAMS
 from scan_postprocess.postprocess import PostprocessFile, step2_preprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, step2b_estimate_tilt
 
@@ -441,18 +436,15 @@ def test_postprocess_file() -> None:
         )
     duration_s = time.monotonic() - start
 
-    levels = (
-        f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-        f" Foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
-    )
     summary_bw = [
-        f"{levels} {params_bw.palette_colors} gray levels",
+        f"Blur radius {params_bw.blur_radius}, at most {params_bw.palette_colors}"
+        f" gray levels, merged at distance {params_bw.merge_distance} (gray levels)",
         *size_totals(sizes_bw, params_bw.label),
     ]
     summary_indexed = [
-        f"{levels} blur radius {params_indexed.blur_radius},"
-        f" {params_indexed.palette_colors} colors merged at distance"
-        f" {params_indexed.merge_distance}",
+        f"Blur radius {params_indexed.blur_radius}, at most"
+        f" {params_indexed.palette_colors} colors, merged at distance"
+        f" {params_indexed.merge_distance} (RGB)",
         *size_totals(sizes_indexed, params_indexed.label),
     ]
     print()

@@ -17,9 +17,9 @@ Outputs, to see the effect of changes in 'scan_postprocess':
   every scan converted to 'bw' and to 'indexed' (PostprocessFile). Committed.
 - DIRECTORY_SCANS_RESULTS / "postprocess_preview/": the files written by
   PostprocessFile, full resolution, compressed. Not committed.
-  - "*_bw16.png": converted to GRAY_LEVELS gray levels.
-  - "*_color32.png": smoothed, reduced to PALETTE_COLORS colors and
-    near-identical colors merged.
+  - "*_bw16.png": converted with PARAMS["bw"]: 16 gray levels.
+  - "*_color32.png": converted with PARAMS["indexed"]: smoothed, reduced to
+    32 colors and near-identical colors merged.
 
 Every test processes every scan, whatever its 'type' in README.md: this
 shows how each conversion behaves on the other types too. The summaries
@@ -36,17 +36,10 @@ import time
 from PIL import Image, ImageDraw
 
 from scan_postprocess.border import remove_border
-from scan_postprocess.bw import (
+from scan_postprocess.convert import (
     BACKGROUND_COLOR_FRACTION,
-    FILENAME_POSTFIX as FILENAME_POSTFIX_BW,
     FOREGROUND_COLOR_FRACTION,
-    GRAY_LEVELS,
-)
-from scan_postprocess.indexed import (
-    BLUR_RADIUS,
-    FILENAME_POSTFIX as FILENAME_POSTFIX_INDEXED,
-    MERGE_DISTANCE,
-    PALETTE_COLORS,
+    PARAMS,
 )
 from scan_postprocess.postprocess import PostprocessFile, postprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
@@ -375,6 +368,8 @@ def size_totals(sizes: list[tuple[str, int, int]], name: str) -> list[str]:
 def test_postprocess_file() -> None:
     """The full chain for every scan: postprocess once, convert to bw and indexed."""
     scan_files, scan_attributes = scan_files_and_attributes()
+    params_bw = PARAMS["bw"]
+    params_indexed = PARAMS["indexed"]
 
     header_bw = [
         "| file | type | content | level foreground color | level background color"
@@ -404,18 +399,21 @@ def test_postprocess_file() -> None:
         assert bw is not None
         assert bw.image.size == size
         assert bw.image.mode == "P"
-        assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
+        assert len(bw.image.getcolors() or []) <= params_bw.palette_colors
         filename_bw = scan.filename_out("bw")
-        assert filename_bw.name == f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
+        assert filename_bw.name == f"{filename.stem}{params_bw.filename_postfix}.png"
 
         indexed = scan.converted_indexed
         assert indexed is not None
         assert indexed.image.size == size
         assert indexed.image.mode == "P"
         assert indexed.colors == len(indexed.image.getcolors() or [])
-        assert indexed.colors <= PALETTE_COLORS
+        assert indexed.colors <= params_indexed.palette_colors
         filename_indexed = scan.filename_out("indexed")
-        assert filename_indexed.name == f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
+        assert (
+            filename_indexed.name
+            == f"{filename.stem}{params_indexed.filename_postfix}.png"
+        )
 
         size_raw = filename.stat().st_size
         size_bw = filename_bw.stat().st_size
@@ -446,10 +444,14 @@ def test_postprocess_file() -> None:
         f"Background color: {100 * BACKGROUND_COLOR_FRACTION:.0f}% of the pixels,"
         f" foreground color: {100 * FOREGROUND_COLOR_FRACTION:.0f}% of the pixels,"
     )
-    summary_bw = [f"{levels} {GRAY_LEVELS} gray levels", *size_totals(sizes_bw, "bw")]
+    summary_bw = [
+        f"{levels} {params_bw.palette_colors} gray levels",
+        *size_totals(sizes_bw, "bw"),
+    ]
     summary_indexed = [
-        f"{levels} blur radius {BLUR_RADIUS},"
-        f" {PALETTE_COLORS} colors merged at distance {MERGE_DISTANCE}",
+        f"{levels} blur radius {params_indexed.blur_radius},"
+        f" {params_indexed.palette_colors} colors merged at distance"
+        f" {params_indexed.merge_distance}",
         *size_totals(sizes_indexed, "indexed"),
     ]
     print()

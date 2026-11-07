@@ -11,10 +11,9 @@ PostprocessFile.postprocess_file() runs every step in this order:
    c. Rotate by -tilt. The corners uncovered by the rotation are filled with
       the background color, like the removed border. The image size does not
       change.
-3. Reduce the colors, both conversions:
-   - "bw": 16 gray levels (scan_postprocess.bw).
-   - "indexed": smooth, up to 32 colors, merge similar colors
-     (scan_postprocess.indexed).
+3. Reduce the colors, both conversions (scan_postprocess.convert):
+   - "bw": 16 gray levels.
+   - "indexed": smooth, up to 32 colors, merge similar colors.
 4. PostprocessFile.save(): both as compressed palette PNG, named
    <stem><postfix>.png, for example scan-01-bw_bw16.png and
    scan-01-bw_color32.png.
@@ -24,17 +23,18 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
-from typing import Literal
 
 from PIL import Image
 
-from scan_postprocess import bw, indexed
 from scan_postprocess.border import remove_border
+from scan_postprocess.convert import (
+    Conversion,
+    ConvertResult,
+    PARAMS,
+    convert,
+    save_png_compressed,
+)
 from scan_postprocess.tilt import estimate_tilt
-
-Conversion = Literal["bw", "indexed"]
-
-ConvertResult = bw.BwResult | indexed.IndexedResult
 
 
 @dataclasses.dataclass(frozen=True)
@@ -78,22 +78,22 @@ class PostprocessFile:
         self.directory_out = directory_out
         self.postprocessed: PostprocessResult | None = None
         """Result of step 2: border removed and deskewed."""
-        self.converted_bw: bw.BwResult | None = None
+        self.converted_bw: ConvertResult | None = None
         """Result of step 3, 'bw': 16 gray levels."""
-        self.converted_indexed: indexed.IndexedResult | None = None
+        self.converted_indexed: ConvertResult | None = None
         """Result of step 3, 'indexed': up to 32 colors."""
 
     def filename_out(self, conversion: Conversion) -> pathlib.Path:
         """scans/scan-01-bw.png -> <directory_out>/scan-01-bw_bw16.png"""
-        postfix = {"bw": bw.FILENAME_POSTFIX, "indexed": indexed.FILENAME_POSTFIX}
-        return self.directory_out / f"{self.filename.stem}{postfix[conversion]}.png"
+        postfix = PARAMS[conversion].filename_postfix
+        return self.directory_out / f"{self.filename.stem}{postfix}.png"
 
     def postprocess_file(self) -> None:
         """The full chain: read, postprocess, convert, save."""
         with Image.open(self.filename) as image:
             self.postprocessed = postprocess(image)
-        self.converted_bw = bw.convert_bw(self.postprocessed.image)
-        self.converted_indexed = indexed.convert_indexed(self.postprocessed.image)
+        self.converted_bw = convert(self.postprocessed.image, PARAMS["bw"])
+        self.converted_indexed = convert(self.postprocessed.image, PARAMS["indexed"])
         self.save()
 
     def save(self) -> None:
@@ -106,6 +106,6 @@ class PostprocessFile:
             ("indexed", self.converted_indexed),
         ]
         for conversion, result in converted:
-            bw.save_png_compressed(
+            save_png_compressed(
                 result.image, self.filename_out(conversion), colors=result.colors
             )

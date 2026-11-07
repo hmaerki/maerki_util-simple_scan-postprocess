@@ -79,12 +79,13 @@ BORDER_MIN_PERCENT = 1.0
 """More removed than this: the scan has a border (thin edge lines are less)."""
 
 _RE_SCAN = re.compile(
-    r"^- (?P<filename>\S+\.png)"
-    r" type=(?P<type>bw|indexed|color)"
-    r" tilt=(?P<tilt>-?\d+(\.\d+)?)degrees"
-    r" content=(?P<content>machine|hand|images|mix)"
-    r" border=(?P<border>yes|no)$"
+    r"^\|\s*(?P<filename>\S+\.png)"
+    r"\s*\|\s*(?P<type>bw|indexed|color)"
+    r"\s*\|\s*(?P<tilt>-?\d+(\.\d+)?)"
+    r"\s*\|\s*(?P<content>machine|hand|images|mix)"
+    r"\s*\|\s*(?P<border>yes|no)\s*\|$"
 )
+"""A row of the table '## Scans' in README.md: | file | type | tilt | content | border |"""
 
 
 @dataclasses.dataclass(frozen=True)

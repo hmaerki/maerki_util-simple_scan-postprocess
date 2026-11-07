@@ -20,27 +20,29 @@ Attributes per scan, read by `tests/scan_postprocess/test_scan_postprocess.py`:
 
 ## Scans
 
-- scan-01-bw.png type=bw tilt=-1.7degrees content=hand border=no
-- scan-02-indexed.png type=indexed tilt=1.8degrees content=hand border=no
-- scan-03-bw.png type=bw tilt=0.0degrees content=hand border=no
-- scan-04-indexed.png type=indexed tilt=0.0degrees content=hand border=no
-- scan-05-color.png type=color tilt=0.0degrees content=mix border=no
-- scan-06-color.png type=color tilt=0.0degrees content=mix border=no
-- scan-07-bw.png type=bw tilt=0.0degrees content=machine border=no
-- scan-08-bw.png type=bw tilt=0.0degrees content=machine border=no
-- scan-09-bw.png type=bw tilt=0.0degrees content=machine border=no
-- scan-10-color.png type=color tilt=0.0degrees content=mix border=no
-- scan-11-indexed.png type=indexed tilt=-0.2degrees content=machine border=no
-- scan-12-indexed.png type=indexed tilt=0.2degrees content=machine border=no
-- scan-13-color.png type=color tilt=0.0degrees content=mix border=no
-- scan-14-bw.png type=bw tilt=0.0degrees content=machine border=no
-- scan-15-indexed.png type=indexed tilt=-0.5degrees content=machine border=no
-- scan-16-indexed.png type=indexed tilt=1.0degrees content=machine border=no
-- scan-17-indexed.png type=indexed tilt=-1.5degrees content=machine border=no
-- scan-18-color.png type=color tilt=0.4degrees content=mix border=no
-- scan-19-color.png type=color tilt=1.6degrees content=mix border=no
-- scan-20-color.png type=color tilt=-1.8degrees content=mix border=no
-- scan-21-indexed.png type=indexed tilt=0.0degrees content=machine border=yes
-- scan-22-indexed.png type=indexed tilt=0.0degrees content=machine border=yes
-- scan-23-indexed.png type=indexed tilt=0.0degrees content=machine border=yes
-- scan-24-indexed.png type=indexed tilt=0.5degrees content=machine border=yes
+| file | type | tilt | content | border |
+|---|---|---:|---|---|
+| scan-01-bw.png | bw | -1.7 | hand | no |
+| scan-02-indexed.png | indexed | 1.8 | hand | no |
+| scan-03-bw.png | bw | 0.0 | hand | no |
+| scan-04-indexed.png | indexed | 0.0 | hand | no |
+| scan-05-color.png | color | 0.0 | mix | no |
+| scan-06-color.png | color | 0.0 | mix | no |
+| scan-07-bw.png | bw | 0.0 | machine | no |
+| scan-08-bw.png | bw | 0.0 | machine | no |
+| scan-09-bw.png | bw | 0.0 | machine | no |
+| scan-10-color.png | color | 0.0 | mix | no |
+| scan-11-indexed.png | indexed | -0.2 | machine | no |
+| scan-12-indexed.png | indexed | 0.2 | machine | no |
+| scan-13-color.png | color | 0.0 | mix | no |
+| scan-14-bw.png | bw | 0.0 | machine | no |
+| scan-15-indexed.png | indexed | -0.5 | machine | no |
+| scan-16-indexed.png | indexed | 1.0 | machine | no |
+| scan-17-indexed.png | indexed | -1.5 | machine | no |
+| scan-18-color.png | color | 0.4 | mix | no |
+| scan-19-color.png | color | 1.6 | mix | no |
+| scan-20-color.png | color | -1.8 | mix | no |
+| scan-21-indexed.png | indexed | 0.0 | machine | yes |
+| scan-22-indexed.png | indexed | 0.0 | machine | yes |
+| scan-23-indexed.png | indexed | 0.0 | machine | yes |
+| scan-24-indexed.png | indexed | 0.5 | machine | yes |

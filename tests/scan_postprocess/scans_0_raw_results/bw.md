@@ -29,7 +29,7 @@ Written by tests/scan_postprocess/test_scan_postprocess.py.
 | scan-23-indexed.png | indexed | machine | 0 | 255 | 13230 | 1464 | 9.0 |
 | scan-24-indexed.png | indexed | machine | 0 | 255 | 17995 | 1738 | 10.3 |
 
-- Background color: 90% of the pixels, foreground color: 1% of the pixels, 16 gray levels
+- Background color: 90% of the pixels, Foreground color: 1% of the pixels, 16 gray levels
 - Total: raw 347818 kB, bw 14333 kB, ratio 24.3
 - Type bw: raw 83473 kB, bw 2198 kB, ratio 38.0
 - Type indexed: raw 163267 kB, bw 7828 kB, ratio 20.9

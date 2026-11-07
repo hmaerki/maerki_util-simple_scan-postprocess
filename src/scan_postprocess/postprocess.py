@@ -27,13 +27,7 @@ import pathlib
 from PIL import Image
 
 from scan_postprocess.border import remove_border
-from scan_postprocess.convert import (
-    Conversion,
-    ConvertResult,
-    PARAMS,
-    convert,
-    save_png_compressed,
-)
+from scan_postprocess.convert import Conversion, ConvertResult, PARAMS
 from scan_postprocess.tilt import estimate_tilt
 
 
@@ -92,8 +86,10 @@ class PostprocessFile:
         """The full chain: read, postprocess, convert, save."""
         with Image.open(self.filename) as image:
             self.postprocessed = postprocess(image)
-        self.converted_bw = convert(self.postprocessed.image, PARAMS["bw"])
-        self.converted_indexed = convert(self.postprocessed.image, PARAMS["indexed"])
+        self.converted_bw = ConvertResult(self.postprocessed.image, PARAMS["bw"])
+        self.converted_indexed = ConvertResult(
+            self.postprocessed.image, PARAMS["indexed"]
+        )
         self.save()
 
     def save(self) -> None:
@@ -101,11 +97,5 @@ class PostprocessFile:
         assert self.converted_bw is not None, "Call postprocess_file() first"
         assert self.converted_indexed is not None, "Call postprocess_file() first"
         self.directory_out.mkdir(parents=True, exist_ok=True)
-        converted: list[tuple[Conversion, ConvertResult]] = [
-            ("bw", self.converted_bw),
-            ("indexed", self.converted_indexed),
-        ]
-        for conversion, result in converted:
-            save_png_compressed(
-                result.image, self.filename_out(conversion), colors=result.colors
-            )
+        for converted in (self.converted_bw, self.converted_indexed):
+            converted.save(self.filename_out(converted.params.label))

@@ -53,7 +53,7 @@ from scan_postprocess.indexed import (
     MERGE_DISTANCE,
     PALETTE_COLORS,
 )
-from scan_postprocess.postprocess import postprocess, postprocess_file
+from scan_postprocess.postprocess import PostprocessFile, postprocess
 from scan_postprocess.tilt import TILT_MAX_DEGREES, estimate_tilt
 
 DIRECTORY_SCANS = pathlib.Path(__file__).parent / "scans_0_raw"
@@ -394,13 +394,15 @@ def test_bw() -> None:
     sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
     for filename in scan_files:
-        result = postprocess_file(filename, DIRECTORY_BW_PREVIEW, "bw")
-        bw = result.converted
+        scan = PostprocessFile(filename, DIRECTORY_BW_PREVIEW, "bw")
+        scan.postprocess_file()
+        bw = scan.converted
         assert isinstance(bw, BwResult)
-        assert bw.image.size == result.postprocessed.image.size
+        assert scan.postprocessed is not None
+        assert bw.image.size == scan.postprocessed.image.size
         assert bw.image.mode == "P"
         assert len(bw.image.getcolors() or []) <= GRAY_LEVELS
-        filename_bw = result.filename_out
+        filename_bw = scan.filename_out
         assert filename_bw.name == f"{filename.stem}{FILENAME_POSTFIX_BW}.png"
 
         size_raw = filename.stat().st_size
@@ -453,15 +455,17 @@ def test_indexed() -> None:
     sizes: list[tuple[str, int, int]] = []
     start = time.monotonic()
     for filename in scan_files:
-        result = postprocess_file(filename, DIRECTORY_INDEXED_PREVIEW, "indexed")
-        indexed = result.converted
+        scan = PostprocessFile(filename, DIRECTORY_INDEXED_PREVIEW, "indexed")
+        scan.postprocess_file()
+        indexed = scan.converted
         assert isinstance(indexed, IndexedResult)
-        assert indexed.image.size == result.postprocessed.image.size
+        assert scan.postprocessed is not None
+        assert indexed.image.size == scan.postprocessed.image.size
         assert indexed.image.mode == "P"
         colors = indexed.colors
         assert colors == len(indexed.image.getcolors() or [])
         assert colors <= PALETTE_COLORS
-        filename_indexed = result.filename_out
+        filename_indexed = scan.filename_out
         assert filename_indexed.name == f"{filename.stem}{FILENAME_POSTFIX_INDEXED}.png"
 
         size_raw = filename.stat().st_size

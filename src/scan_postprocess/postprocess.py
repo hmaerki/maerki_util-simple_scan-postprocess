@@ -1,6 +1,6 @@
 """Postprocess a scanned page: the full chain from the raw scan to the file.
 
-postprocess_file() runs every step in this order:
+PostprocessFile.postprocess_file() runs every step in this order:
 1. Read the raw scan.
 2. postprocess(): geometry.
    a. Remove the border (scanner lid, dark edge lines), paint it with the
@@ -15,7 +15,7 @@ postprocess_file() runs every step in this order:
    - "bw": 16 gray levels (scan_postprocess.bw).
    - "indexed": smooth, up to 32 colors, merge similar colors
      (scan_postprocess.indexed).
-4. save(): compressed palette PNG, named <stem><postfix>.png, for example
+4. PostprocessFile.save(): compressed palette PNG, named <stem><postfix>.png, for example
    scan-01-bw_bw16.png.
 """
 
@@ -44,16 +44,6 @@ class PostprocessResult:
     border_fraction: float
 
 
-@dataclasses.dataclass(frozen=True)
-class PostprocessFileResult:
-    postprocessed: PostprocessResult
-    """Result of step 2: border removed and deskewed."""
-    converted: ConvertResult
-    """Result of step 3: colors reduced."""
-    filename_out: pathlib.Path
-    """The file written in step 4."""
-
-
 def postprocess(image: Image.Image) -> PostprocessResult:
     """Step 2: remove the border, then deskew."""
     border = remove_border(image)
@@ -80,38 +70,53 @@ def convert(image: Image.Image, conversion: Conversion) -> ConvertResult:
     raise ValueError(f"Unknown conversion: {conversion!r}")
 
 
-def filename_postfix(conversion: Conversion) -> str:
-    if conversion == "bw":
-        return bw.FILENAME_POSTFIX
-    if conversion == "indexed":
-        return indexed.FILENAME_POSTFIX
-    raise ValueError(f"Unknown conversion: {conversion!r}")
+class PostprocessFile:
+    """The full chain for one scan file: read, postprocess, convert, save.
 
+    Usage:
+        scan = PostprocessFile(filename, directory_out, "bw")
+        scan.postprocess_file()
+        scan.converted.image, scan.filename_out
+    """
 
-def filename_output(
-    filename: pathlib.Path, directory_out: pathlib.Path, conversion: Conversion
-) -> pathlib.Path:
-    """scans/scan-01-bw.png -> <directory_out>/scan-01-bw_bw16.png"""
-    return directory_out / f"{filename.stem}{filename_postfix(conversion)}.png"
+    def __init__(
+        self,
+        filename: pathlib.Path,
+        directory_out: pathlib.Path,
+        conversion: Conversion,
+    ) -> None:
+        self.filename = filename
+        self.directory_out = directory_out
+        self.conversion = conversion
+        self.postprocessed: PostprocessResult | None = None
+        """Result of step 2: border removed and deskewed."""
+        self.converted: ConvertResult | None = None
+        """Result of step 3: colors reduced."""
 
+    @property
+    def filename_postfix(self) -> str:
+        if self.conversion == "bw":
+            return bw.FILENAME_POSTFIX
+        if self.conversion == "indexed":
+            return indexed.FILENAME_POSTFIX
+        raise ValueError(f"Unknown conversion: {self.conversion!r}")
 
-def save(converted: ConvertResult, filename_out: pathlib.Path) -> None:
-    """Step 4: save as compressed palette PNG."""
-    bw.save_png_compressed(converted.image, filename_out, colors=converted.colors)
+    @property
+    def filename_out(self) -> pathlib.Path:
+        """scans/scan-01-bw.png -> <directory_out>/scan-01-bw_bw16.png"""
+        return self.directory_out / f"{self.filename.stem}{self.filename_postfix}.png"
 
+    def postprocess_file(self) -> None:
+        """The full chain: read, postprocess, convert, save."""
+        with Image.open(self.filename) as image:
+            self.postprocessed = postprocess(image)
+        self.converted = convert(self.postprocessed.image, self.conversion)
+        self.save()
 
-def postprocess_file(
-    filename: pathlib.Path, directory_out: pathlib.Path, conversion: Conversion
-) -> PostprocessFileResult:
-    """The full chain: read, postprocess, convert, save."""
-    with Image.open(filename) as image:
-        postprocessed = postprocess(image)
-    converted = convert(postprocessed.image, conversion)
-    directory_out.mkdir(parents=True, exist_ok=True)
-    filename_out = filename_output(filename, directory_out, conversion)
-    save(converted, filename_out)
-    return PostprocessFileResult(
-        postprocessed=postprocessed,
-        converted=converted,
-        filename_out=filename_out,
-    )
+    def save(self) -> None:
+        """Step 4: save as compressed palette PNG."""
+        assert self.converted is not None, "Call postprocess_file() first"
+        self.directory_out.mkdir(parents=True, exist_ok=True)
+        bw.save_png_compressed(
+            self.converted.image, self.filename_out, colors=self.converted.colors
+        )

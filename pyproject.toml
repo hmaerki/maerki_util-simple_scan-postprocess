@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-# scan_postprocess = "scan_postprocess.scan_postprocess:app"
+postprocess_simple_scan = "scan_postprocess.main_postprocess_simple_scan:main"
 
 [tool.pdm]
 version = { source = "file", path = "src/scan_postprocess/__init__.py" }

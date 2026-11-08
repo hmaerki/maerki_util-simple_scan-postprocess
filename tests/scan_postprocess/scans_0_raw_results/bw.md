@@ -24,13 +24,13 @@ Written by tests/scan_postprocess/test_scan_postprocess.py.
 | scan-18-color.png | color | mix | 56 | 216 | 13713 | 147 | 92.7 |
 | scan-19-color.png | color | mix | 56 | 216 | 13785 | 151 | 91.2 |
 | scan-20-color.png | color | mix | 56 | 216 | 13800 | 152 | 90.8 |
-| scan-21-indexed.png | indexed | machine | 0 | 255 | 14947 | 69 | 214.8 |
-| scan-22-indexed.png | indexed | machine | 0 | 255 | 17612 | 105 | 167.4 |
-| scan-23-indexed.png | indexed | machine | 0 | 255 | 13230 | 31 | 417.9 |
-| scan-24-indexed.png | indexed | machine | 0 | 255 | 17995 | 56 | 318.4 |
+| scan-21-indexed.png | indexed | machine | 218 | 117 | 14947 | 49 | 300.2 |
+| scan-22-indexed.png | indexed | machine | 201 | 93 | 17612 | 104 | 169.0 |
+| scan-23-indexed.png | indexed | machine | 204 | 129 | 13230 | 34 | 385.3 |
+| scan-24-indexed.png | indexed | machine | 207 | 104 | 17995 | 56 | 316.4 |
 
 - Blur radius 0.3, at most 16 gray levels, merged at distance 24.0 (gray levels)
-- Total: raw 347818 kB, bw 2696 kB, ratio 129.0
+- Total: raw 347818 kB, bw 2678 kB, ratio 129.9
 - Type bw: raw 83473 kB, bw 416 kB, ratio 200.5
-- Type indexed: raw 163267 kB, bw 881 kB, ratio 185.3
+- Type indexed: raw 163267 kB, bw 863 kB, ratio 189.1
 - Type color: raw 101076 kB, bw 1398 kB, ratio 72.3

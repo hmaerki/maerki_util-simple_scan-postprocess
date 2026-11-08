@@ -17,8 +17,15 @@ The preview directories below `tests/scan_postprocess/scans_0_raw_results` carry
 | 3a | smooth | `ConvertResult.step3a_smooth()` | blur 1.0 |
 | 3b | reduce to color groups | `ConvertResult.step3b_reduce()` | median cut to 256, merge at 24 (bw: gray levels, indexed: RGB) |
 | 3c | clean the groups | `ConvertResult.step3c_clean()` | edge mixes join a neighbour, at most 16 / 32, core colors |
-| 3d | **stretch**, only on a white background | `ConvertResult.step3d_stretch()` | background -> pure white, ink -> black, colored backgrounds unchanged |
+| 3d | **stretch** | `ConvertResult.step3d_stretch()` | bw16: background -> white, foreground -> black, always. indexed32: background and foreground unchanged |
 | 4 | save | `PostprocessFile.step4_save()`, `ConvertResult.step4_save()` | |
+
+Why step 3d differs between the conversions:
+
+- **bw16**: the background color always becomes white and the foreground color always
+  black, also for light text on a dark or colored background. Rationale: printed on a
+  black and white printer, the page should need a minimal amount of ink.
+- **indexed32**: the background color and the foreground color remain unchanged.
 
 Why this order:
 

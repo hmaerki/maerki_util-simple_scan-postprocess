@@ -23,24 +23,41 @@ brightness, but are two clearly separate color groups.)
    - Every group gets the mean color of its core pixels, measured on the
      smoothed image: not the color of its most frequent member, which may be
      a mix.
-3d. Stretch, only if the background is white:
-   - Background: the most frequent group. White: bright and unsaturated
-     (WHITE_MIN_GRAY, WHITE_MAX_SATURATION). Slightly gray or tinted is still
-     white. Colored backgrounds (red or green paper, book covers) are not
-     white: their colors are kept as they are.
+3d. Stretch. Both conversions first decide whether the background is white:
+   the background is the most frequent group; it is white if bright and
+   unsaturated (WHITE_MIN_GRAY, WHITE_MAX_SATURATION). Slightly gray or
+   tinted is still white. Colored backgrounds (red or green paper, book
+   covers) are not white.
+
+   'bw': the background always becomes white and the ink always black, also
+   for light text on a dark or colored background. Rationale: printed on a
+   black and white printer, the page should need a minimal amount of ink.
+   - White background (step3d_stretch()): the ink is the darkest group with
+     enough pixels, if dark enough (INK_MAX_GRAY). White point: the
+     background gray. Black point: the ink gray.
+   - Background not white (step3d_stretch_bw_dark()): the ink is the most
+     frequent group differing at least INK_MIN_CONTRAST from the background,
+     lighter or darker (light text on dark paper). Background -> white,
+     ink -> black; the other groups become the darker the more they differ
+     from the background.
+   - Stroke width: the pixels of the background group and the pixels near
+     the ink (INK_EDGE_DISTANCE) are split anew by their gray, at
+     INK_THRESHOLD between ink and background: ink or background, no halo.
+
+   'indexed': only if the background is white (step3d_stretch()); colored
+   backgrounds keep their colors as they are.
    - White point: the background color, per channel: grayish or tinted white
      becomes pure white.
    - Black point: the gray of the ink (the darkest group with enough pixels,
      if dark enough), the same for all channels: blue ink stays blue.
-   - Stroke width: the pixels of the background group and the pixels near
-     the ink (INK_EDGE_DISTANCE) are split anew by their gray, at
-     INK_THRESHOLD between ink and background: ink or background, no halo.
+   - Stroke width: as for 'bw'.
+
    Finally colors closer than merge_distance are merged again: shades of
    white after the stretch, core colors that came closer in 3c.
 
-The only difference between the conversions: 'bw' (grayscale=True) works on
-the gray image, its merge_distance is measured in gray levels; 'indexed' works
-on RGB, its merge_distance is the RGB euclidean distance.
+Differences between the conversions: 'bw' (grayscale=True) works on the gray
+image, its merge_distance is measured in gray levels; 'indexed' works on RGB,
+its merge_distance is the RGB euclidean distance. And step 3d, see above.
 """
 
 from __future__ import annotations
@@ -74,6 +91,9 @@ INK_MAX_GRAY = 110
 most this."""
 INK_MIN_PAGE_FRACTION = 0.002
 """Step 3d: groups with fewer pixels are ignored when looking for the ink."""
+INK_MIN_CONTRAST = 60
+"""Step 3d, 'bw' on a background that is not white: a group is ink only if its
+gray differs at least this from the background gray (lighter or darker)."""
 INK_THRESHOLD = 0.65
 """Step 3d: the stroke width. The edge of a stroke is a ramp from the ink gray
 to the background gray. A pixel becomes ink if its gray lies within
@@ -209,6 +229,9 @@ class ConvertResult:
         background = palette[0]  # the most frequent, see step3c_clean()
         saturation = (background.max() - background.min()) / max(background.max(), 1)
         if gray[0] < WHITE_MIN_GRAY or saturation > WHITE_MAX_SATURATION:
+            if self.params.grayscale:
+                # 'bw': background -> white, ink -> black, always.
+                return self.step3d_stretch_bw_dark(image, indices, palette, counts)
             # Not white: a colored background, keep the colors. Merge nevertheless:
             # the core colors of step 3c may have come closer together.
             return self.merge_palette(image_p)
@@ -244,6 +267,59 @@ class ConvertResult:
         span = np.maximum(background - black, 1.0)
         palette = np.clip((palette - black) / span * 255.0, 0.0, 255.0)
         # Several shades of white (or black) are now near-identical.
+        return self.merge_palette(self.make_image_p(indices, palette))
+
+    def step3d_stretch_bw_dark(
+        self,
+        image: Image.Image,
+        indices: np.ndarray,
+        palette: np.ndarray,
+        counts: np.ndarray,
+    ) -> Image.Image:
+        """Step 3d, 'bw' only, the background is not white (gray, or a colored
+        paper seen in gray), often with light text: the background becomes
+        white and the ink black, whether the ink is darker or lighter.
+        Rationale: printed on a black and white printer, the page should need
+        a minimal amount of ink.
+
+        Ink: the most frequent group differing at least INK_MIN_CONTRAST from
+        the background. Every other group becomes the darker the more it
+        differs from the background, in either direction:
+        |gray - background| / |ink - background| -> white .. black.
+        """
+        gray = palette[:, 0]
+        candidates = [
+            i
+            for i in range(1, len(palette))
+            if counts[i] >= INK_MIN_PAGE_FRACTION * indices.size
+            and abs(gray[i] - gray[0]) >= INK_MIN_CONTRAST
+        ]
+        ink = max(candidates, key=lambda i: counts[i], default=None)
+        self.level_background_color = round(gray[0])
+        if ink is None:
+            # Only the background: white. Everything else keeps its contrast.
+            contrast = 255.0
+        else:
+            contrast = abs(gray[ink] - gray[0])
+            self.level_foreground_color = round(gray[ink])
+            # Stroke width: as in step3d_stretch(), on the ink side of the limit.
+            direction = 1.0 if gray[0] > gray[ink] else -1.0
+            limit = gray[ink] + INK_THRESHOLD * (gray[0] - gray[ink])
+            pixels_gray = np.asarray(image.convert("L")).astype(np.float64)
+            is_ink = indices == ink
+            near_ink = np.asarray(
+                Image.fromarray(is_ink.astype(np.uint8) * 255).filter(
+                    ImageFilter.MaxFilter(2 * INK_EDGE_DISTANCE + 1)
+                )
+            ).astype(bool)
+            split = (indices == 0) | near_ink
+            ink_side = (pixels_gray - limit) * direction <= 0
+            indices = indices.copy()
+            indices[split & ink_side] = ink
+            indices[split & ~ink_side] = 0
+
+        darkness = np.clip(np.abs(gray - gray[0]) / contrast, 0.0, 1.0)
+        palette = np.repeat((255.0 * (1.0 - darkness))[:, None], 3, axis=1)
         return self.merge_palette(self.make_image_p(indices, palette))
 
     def step4_save(self, filename: pathlib.Path) -> None:
